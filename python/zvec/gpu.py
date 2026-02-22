@@ -1,220 +1,189 @@
 """
-GPU acceleration module for zvec.
+Accelerated operations module for zvec using FAISS and NumPy.
 
-This module provides GPU acceleration for vector operations on Apple Silicon (M-series)
-and other platforms. Falls back to CPU if GPU is not available.
+This module provides high-performance vector operations using:
+- FAISS (Facebook AI Similarity Search) - fastest for large datasets
+- NumPy with Accelerate (Apple's BLAS) - optimal for small/medium datasets
 
 Usage:
-    from zvec.gpu import GPUBackend, get_optimal_backend
+    from zvec.accelerate import AcceleratedBackend, get_optimal_backend
     
-    # Auto-detect best backend
+    # Auto-detect best backend (FAISS > NumPy/Accelerate)
     backend = get_optimal_backend()
-    
-    # Create GPU-accelerated index
-    index = GPUBackend.create_index(dim=128, metric="L2")
 """
 
 from __future__ import annotations
 
 import platform
-import sys
 from typing import Literal, Optional
 
+import numpy as np
+
 __all__ = [
-    'GPUBackend',
+    'AcceleratedBackend',
     'get_optimal_backend',
-    'is_apple_silicon',
-    'get_gpu_info',
+    'get_accelerate_info',
     'AVAILABLE',
+    'FAISS_AVAILABLE',
+    'search_faiss',
+    'search_numpy',
 ]
 
 # Check what's available
-AVAILABLE = False
-BACKEND_TYPE = "none"
+FAISS_AVAILABLE = False
+BACKEND_TYPE = "numpy"
 
-# Check for Apple Silicon
-def is_apple_silicon() -> bool:
-    """Check if running on Apple Silicon (M1/M2/M3/M4)."""
-    return platform.system() == "Darwin" and platform.machine() == "arm64"
-
-# Try to import GPU libraries
+# Try to import FAISS
 try:
     import faiss
     FAISS_AVAILABLE = True
+    BACKEND_TYPE = "faiss"
 except ImportError:
     FAISS_AVAILABLE = False
 
-try:
-    import torch
-    TORCH_AVAILABLE = True
-    TORCH_MPS_AVAILABLE = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
-except ImportError:
-    TORCH_AVAILABLE = False
-    TORCH_MPS_AVAILABLE = False
 
-# Determine available backend
-def _detect_backend() -> tuple[bool, str]:
-    """Detect the best available backend."""
-    if is_apple_silicon():
-        # Apple Silicon - can use MPS or CPU
-        if TORCH_MPS_AVAILABLE:
-            return True, "mps"
-        elif FAISS_AVAILABLE:
-            return True, "faiss-cpu"
-    elif platform.system() == "Linux":
-        # Check for NVIDIA GPU
-        if TORCH_AVAILABLE and torch.cuda.is_available():
-            return True, "cuda"
-        elif FAISS_AVAILABLE:
-            return True, "faiss-cpu"
-    elif platform.system() == "Darwin":
-        # Intel Mac
-        if FAISS_AVAILABLE:
-            return True, "faiss-cpu"
-    
-    return False, "none"
-
-AVAILABLE, BACKEND_TYPE = _detect_backend()
-
-
-def get_optimal_backend() -> str:
-    """
-    Get the optimal backend for the current platform.
-    
-    Returns:
-        Backend type: "mps", "cuda", "faiss-cpu", or "none"
-    """
-    return BACKEND_TYPE
-
-
-def get_gpu_info() -> dict:
-    """
-    Get information about available GPU backends.
-    
-    Returns:
-        Dictionary with backend information
-    """
-    info = {
-        "platform": platform.system(),
-        "machine": platform.machine(),
-        "is_apple_silicon": is_apple_silicon(),
-        "backends": {
-            "faiss": FAISS_AVAILABLE,
-            "torch": TORCH_AVAILABLE,
-            "torch_mps": TORCH_MPS_AVAILABLE,
-            "cuda": TORCH_AVAILABLE and torch.cuda.is_available() if TORCH_AVAILABLE else False,
-        },
-        "selected": BACKEND_TYPE,
-        "available": AVAILABLE,
-    }
-    return info
-
-
-class GPUBackend:
-    """
-    GPU-accelerated backend for zvec operations.
-    
-    Currently supports:
-    - Apple Silicon MPS (M1/M2/M3/M4)
-    - NVIDIA CUDA (via PyTorch)
-    - CPU fallback (FAISS)
-    """
-    
-    def __init__(
-        self,
-        backend: Optional[str] = None,
-        device: int = 0,
-    ):
-        """
-        Initialize GPU backend.
-        
-        Args:
-            backend: Backend to use ("mps", "cuda", "faiss-cpu", "auto")
-            device: Device ID for CUDA
-        """
-        self.backend = backend or get_optimal_backend()
-        self.device = device
-        
-        if self.backend == "auto":
-            self.backend = get_optimal_backend()
-        
-        if self.backend not in ["mps", "cuda", "faiss-cpu", "none"]:
-            raise ValueError(f"Unknown backend: {self.backend}")
-    
-    @staticmethod
-    def is_available() -> bool:
-        """Check if GPU backend is available."""
-        return AVAILABLE
-    
-    def create_index(
-        self,
-        dim: int,
-        metric: Literal["L2", "IP", "cosine"] = "L2",
-        nlist: int = 100,
-    ) -> "faiss.Index":
-        """
-        Create a GPU-accelerated index.
-        
-        Args:
-            dim: Vector dimension
-            metric: Distance metric ("L2", "IP", "cosine")
-            nlist: Number of clusters
-            
-        Returns:
-            FAISS index (GPU-accelerated if available)
-        """
-        if not FAISS_AVAILABLE:
-            raise RuntimeError("FAISS not available")
-        
-        # Create index
-        quantizer = faiss.IndexFlatL2(dim)
-        index = faiss.IndexIVFFlat(quantizer, dim, nlist)
-        
-        # Transfer to GPU if available
-        if self.backend == "cuda" and TORCH_AVAILABLE:
-            res = faiss.StandardGpuResources()
-            index = faiss.index_cpu_to_gpu(res, self.device, index)
-        elif self.backend == "mps":
-            # MPS not directly supported by FAISS, use CPU
-            # But we can use PyTorch MPS for operations
-            pass
-        
-        return index
-    
-    def search(
-        self,
-        index: "faiss.Index",
-        queries: "np.ndarray",
-        k: int = 10,
-    ) -> tuple:
-        """
-        Search the index.
-        
-        Args:
-            index: FAISS index
-            queries: Query vectors
-            k: Number of nearest neighbors
-            
-        Returns:
-            Tuple of (distances, indices)
-        """
-        if hasattr(index, 'is_trained') and not index.is_trained:
-            raise RuntimeError("Index not trained")
-        
-        return index.search(queries, k)
-    
-    def __repr__(self) -> str:
-        return f"GPUBackend(backend={self.backend}, available={AVAILABLE})"
-
-
-# Convenience function
 def get_optimal_backend() -> str:
     """Get the optimal backend for the current platform."""
     return BACKEND_TYPE
 
 
-# Auto-initialize if possible
-if AVAILABLE:
-    _default_backend = GPUBackend()
-else:
-    _default_backend = None
+def get_accelerate_info() -> dict:
+    """Get information about available acceleration backends."""
+    info = {
+        "platform": platform.system(),
+        "machine": platform.machine(),
+        "backends": {
+            "faiss": FAISS_AVAILABLE,
+        },
+        "selected": BACKEND_TYPE,
+        "available": FAISS_AVAILABLE or True,  # NumPy always available
+    }
+    return info
+
+
+class AcceleratedBackend:
+    """
+    Accelerated backend using FAISS for large-scale vector search.
+    
+    FAISS provides the fastest approximate nearest neighbor search,
+    optimized for both CPU and GPU (NVIDIA).
+    """
+    
+    def __init__(self, backend: Optional[str] = None):
+        """
+        Initialize accelerated backend.
+        
+        Args:
+            backend: "faiss" or "numpy" (auto-detect if None)
+        """
+        self.backend = backend or get_optimal_backend()
+        
+        if self.backend not in ["faiss", "numpy"]:
+            raise ValueError(f"Unknown backend: {self.backend}")
+    
+    @staticmethod
+    def is_faiss_available() -> bool:
+        """Check if FAISS is available."""
+        return FAISS_AVAILABLE
+    
+    def create_index(
+        self,
+        dim: int,
+        metric: Literal["L2", "IP"] = "L2",
+        nlist: int = 100,
+    ):
+        """Create an index for vector search."""
+        if not FAISS_AVAILABLE:
+            raise RuntimeError("FAISS not available")
+        
+        if metric == "L2":
+            quantizer = faiss.IndexFlatL2(dim)
+            index = faiss.IndexIVFFlat(quantizer, dim, nlist)
+        else:  # IP = inner product
+            quantizer = faiss.IndexFlatIP(dim)
+            index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
+        
+        return index
+    
+    def search(
+        self,
+        index,
+        queries: np.ndarray,
+        k: int = 10,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Search the index."""
+        return index.search(queries.astype('float32'), k)
+    
+    def __repr__(self) -> str:
+        return f"AcceleratedBackend(backend={self.backend}, faiss={FAISS_AVAILABLE})"
+
+
+# Convenience functions
+def search_faiss(
+    queries: np.ndarray,
+    database: np.ndarray,
+    k: int = 10,
+    nlist: int = 100,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Fast vector search using FAISS.
+    
+    Args:
+        queries: Query vectors (N x D)
+        database: Database vectors (M x D)
+        k: Number of nearest neighbors
+        nlist: Number of clusters for IVF index
+        
+    Returns:
+        Tuple of (distances, indices)
+    """
+    if not FAISS_AVAILABLE:
+        raise RuntimeError("FAISS not available")
+    
+    dim = database.shape[1]
+    
+    # Create index
+    index = faiss.IndexFlatL2(dim)
+    index.add(database.astype('float32'))
+    
+    # Search
+    return index.search(queries.astype('float32'), k)
+
+
+def search_numpy(
+    queries: np.ndarray,
+    database: np.ndarray,
+    k: int = 10,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Vector search using NumPy with Accelerate (Apple's BLAS).
+    
+    This is very fast for small to medium datasets.
+    
+    Args:
+        queries: Query vectors (N x D)
+        database: Database vectors (M x D)
+        k: Number of nearest neighbors
+        
+    Returns:
+        Tuple of (distances, indices)
+    """
+    # Compute all pairwise L2 distances using matrix operations
+    # ||q - d||^2 = ||q||^2 + ||d||^2 - 2*q.d
+    q_norm = np.sum(queries**2, axis=1, keepdims=True)
+    d_norm = np.sum(database**2, axis=1)
+    distances = q_norm + d_norm - 2 * (queries @ database.T)
+    
+    # Get top-k
+    indices = np.argpartition(distances, k-1, axis=1)[:, :k]
+    
+    # Sort by distance
+    row_idx = np.arange(len(queries))[:, None]
+    sorted_dist = distances[row_idx, indices]
+    sorted_idx = np.argsort(sorted_dist, axis=1)
+    
+    return np.take_along_axis(distances, indices, axis=1)[row_idx, sorted_idx], np.take_along_axis(indices, sorted_idx, axis=1)
+
+
+# Auto-initialize
+_default_backend = AcceleratedBackend() if FAISS_AVAILABLE else None
