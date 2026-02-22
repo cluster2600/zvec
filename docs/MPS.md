@@ -1,6 +1,6 @@
 # Metal MPS (Apple Silicon) Guide
 
-This guide explains how to use Metal Performance Shaders (MPS) for GPU acceleration on Apple Silicon (M1/M2/M3/M4) chips.
+This guide explains how to use Metal Performance Shaders (MPS) for GPU acceleration on Apple Silicon (M1/M2/M1 Max/M4) chips.
 
 ## Overview
 
@@ -20,7 +20,7 @@ mps = MPSBackend()
 
 ## Requirements
 
-- Apple Silicon (M1, M2, M3, or M4)
+- Apple Silicon (M1, M2, M1 Max, or M4)
 - macOS 12.3+
 - PyTorch with MPS support
 
@@ -77,7 +77,7 @@ result = mps.batch_matrix_multiply(a, b)
 
 ## Performance
 
-### Benchmark Results (M3)
+### Benchmark Results (M1 Max)
 
 | Operation | Data Size | Time |
 |-----------|-----------|------|
@@ -134,7 +134,7 @@ schema = zvec.CollectionSchema(
 
 ### "Metal Performance Shaders not available"
 
-1. Ensure you're on Apple Silicon (M1/M2/M3/M4)
+1. Ensure you're on Apple Silicon (M1/M2/M1 Max/M4)
 2. Update macOS to 12.3+
 3. Reinstall PyTorch: `pip install torch`
 
