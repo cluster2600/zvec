@@ -76,6 +76,9 @@ from .model.schema import CollectionSchema, CollectionStats, FieldSchema, Vector
 
 # —— tools ——
 from .tool import require_module
+from . import compression
+
+# —— typing ——
 from .typing import (
     DataType,
     IndexType,
