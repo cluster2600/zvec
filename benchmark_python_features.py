@@ -62,21 +62,21 @@ for dim in VECTOR_SIZES:
     
     print(f"\n--- Vectors: {NUM_VECTORS}x{dim} ({original_size:,} bytes) ---")
     
-    # 1. pickle (current method)
+    # 1. pickle (current method - numpy direct)
     start = time.perf_counter()
-    pickled = pickle.dumps(vectors)
+    pickled = pickle.dumps(vectors)  # pickle the numpy array directly
     pickle_time = time.perf_counter() - start
     pickle_size = len(pickled)
     
-    # 2. gzip
+    # 2. gzip - compress raw bytes
     start = time.perf_counter()
-    gzipped = gzip.compress(data_bytes)
+    gzipped = gzip.compress(data_bytes, compresslevel=6)
     gzip_time = time.perf_counter() - start
     gzip_size = len(gzipped)
     
-    # 3. lzma
+    # 3. lzma - compress raw bytes
     start = time.perf_counter()
-    lzma_compressed = lzma.compress(data_bytes)
+    lzma_compressed = lzma.compress(data_bytes, preset=3)
     lzma_time = time.perf_counter() - start
     lzma_size = len(lzma_compressed)
     
