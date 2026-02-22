@@ -135,6 +135,32 @@ from zvec.compression_integration import (
 method = get_optimal_compression(50000)  # Returns "gzip", "zstd", or "none"
 ```
 
+### `zvec.streaming`
+
+```python
+from zvec.streaming import (
+    StreamCompressor,        # File-based streaming compression
+    StreamDecompressor,      # File-based streaming decompression
+    VectorStreamCompressor,  # Specialized for vectors
+    chunked_compress,       # In-memory chunked compression
+    chunked_decompress,     # In-memory chunked decompression
+)
+
+# File streaming
+with StreamCompressor("data.gz", method="gzip") as comp:
+    comp.write(data)
+
+with StreamDecompressor("data.gz") as decomp:
+    for chunk in decomp:
+        process(chunk)
+
+# Vector-specific streaming
+with VectorStreamCompressor("vectors.gz", dtype="float32") as comp:
+    comp.write_batch(batch1)
+    comp.write_batch(batch2)
+    meta = comp.close()
+```
+
 ## Error Handling
 
 ```python
@@ -160,6 +186,31 @@ else:
 2. **Benchmark before production**: Test with your actual data sizes
 3. **Consider CPU vs I/O tradeoff**: Compression saves disk space but uses CPU
 4. **Test decompression**: Always verify round-trip integrity
+
+## Streaming Compression
+
+For large datasets that don't fit in memory, use streaming compression:
+
+```python
+from zvec.streaming import StreamCompressor, StreamDecompressor, VectorStreamCompressor
+
+# Streaming compression for large files
+with StreamCompressor("vectors.gz", method="gzip") as comp:
+    for batch in large_dataset_batches:
+        comp.write(batch.tobytes())
+
+# Streaming decompression
+with StreamDecompressor("vectors.gz") as decomp:
+    for chunk in decomp:
+        process(chunk)
+
+# Specialized for vectors
+with VectorStreamCompressor("vectors.gz", dtype="float32") as comp:
+    comp.write_batch(vectors_batch_1)
+    comp.write_batch(vectors_batch_2)
+    metadata = comp.close()
+    print(f"Total: {metadata['count']} vectors")
+```
 
 ## Examples
 
