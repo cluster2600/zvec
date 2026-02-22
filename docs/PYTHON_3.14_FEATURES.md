@@ -54,3 +54,47 @@ Pour exécuter:
 ```bash
 python3 benchmark_python_features.py
 ```
+
+## Comment utiliser ces features (une fois implémenté)
+
+### compression.zstd pour vecteurs
+
+```python
+import numpy as np
+import compression.zstd as zstd
+
+# Créer des vecteurs
+vectors = np.random.rand(1000, 128).astype(np.float32)
+
+# Compresser pour stockage
+compressed = zstd.compress(vectors.tobytes())
+
+# Décompresser
+decompressed = np.frombuffer(zstd.decompress(compressed), dtype=np.float32).reshape(1000, 128)
+```
+
+### base64.z85 pour encodage binaire
+
+```python
+import base64
+
+# Encoder un vecteur binaire
+vector_bytes = vector.tobytes()
+encoded = base64.z85encode(vector_bytes)
+
+# Décoder
+decoded = base64.z85decode(encoded)
+```
+
+### Intégration zvec (future)
+
+```python
+# Quand ces features seront intégrées dans zvec:
+import zvec
+
+schema = zvec.CollectionSchema(
+    name="compressed",
+    vectors=zvec.VectorSchema("embedding", zvec.DataType.VECTOR_FP32, 128),
+    compression="zstd"  # Nouvelle option!
+)
+```
