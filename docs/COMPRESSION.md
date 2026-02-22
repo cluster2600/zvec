@@ -2,6 +2,13 @@
 
 This guide explains how to use zvec's compression features to reduce storage size and improve performance.
 
+## Overview
+
+zvec provides compression at two levels:
+
+1. **Python Level**: Pre/post-processing compression for vectors
+2. **C++ Level**: Automatic RocksDB storage compression
+
 ## Installation
 
 Compression features are built-in. For optimal performance with zstd, install Python 3.13+:
@@ -10,6 +17,24 @@ Compression features are built-in. For optimal performance with zstd, install Py
 # Python 3.13+ recommended for zstd support
 pip install zvec
 ```
+
+## C++ Storage Compression
+
+The C++ storage layer uses **RocksDB** with automatic compression:
+
+| Level | Compression | Use Case |
+|-------|-------------|----------|
+| 0 (memtable) | None | Speed |
+| 1-2 | LZ4 | Fast warm data |
+| 3-6 | Zstd | Best compression |
+
+This is automatic and transparent - all data stored in zvec collections is compressed.
+
+**Benefits:**
+- No configuration needed
+- Transparent to users
+- Optimal for all vector sizes
+- Uses RocksDB's built-in zstd (no extra dependencies)
 
 ## Quick Start
 
