@@ -58,17 +58,15 @@ def compress_vector(
     if method == "zstd":
         if ZSTD_AVAILABLE:
             return compression.zstd.compress(data)
-        else:
-            # Fallback to gzip if zstd not available
-            return gzip.compress(data)
-    elif method == "gzip":
+        # Fallback to gzip if zstd not available
         return gzip.compress(data)
-    elif method == "lzma":
+    if method == "gzip":
+        return gzip.compress(data)
+    if method == "lzma":
         return lzma.compress(data)
-    elif method == "pickle":
+    if method == "pickle":
         return pickle.dumps(data)
-    else:
-        raise ValueError(f"Unknown compression method: {method}")
+    raise ValueError(f"Unknown compression method: {method}")
 
 
 def decompress_vector(
@@ -92,17 +90,15 @@ def decompress_vector(
     if method == "zstd":
         if ZSTD_AVAILABLE:
             return compression.zstd.decompress(data)
-        else:
-            # Fallback to gzip
-            return gzip.decompress(data)
-    elif method == "gzip":
+        # Fallback to gzip
         return gzip.decompress(data)
-    elif method == "lzma":
+    if method == "gzip":
+        return gzip.decompress(data)
+    if method == "lzma":
         return lzma.decompress(data)
-    elif method == "pickle":
+    if method == "pickle":
         return pickle.loads(data)
-    else:
-        raise ValueError(f"Unknown compression method: {method}")
+    raise ValueError(f"Unknown compression method: {method}")
 
 
 def encode_vector(data: bytes, encoding: Literal["z85", "base64", "urlsafe"] = "z85") -> str:
@@ -122,15 +118,13 @@ def encode_vector(data: bytes, encoding: Literal["z85", "base64", "urlsafe"] = "
     if encoding == "z85":
         if Z85_AVAILABLE:
             return base64.z85encode(data).decode('ascii')
-        else:
-            # Fallback to base64
-            return base64.b64encode(data).decode('ascii')
-    elif encoding == "base64":
+        # Fallback to base64
         return base64.b64encode(data).decode('ascii')
-    elif encoding == "urlsafe":
+    if encoding == "base64":
+        return base64.b64encode(data).decode('ascii')
+    if encoding == "urlsafe":
         return base64.urlsafe_b64encode(data).decode('ascii')
-    else:
-        raise ValueError(f"Unknown encoding: {encoding}")
+    raise ValueError(f"Unknown encoding: {encoding}")
 
 
 def decode_vector(encoded: str, encoding: Literal["z85", "base64", "urlsafe"] = "z85") -> bytes:
@@ -150,22 +144,20 @@ def decode_vector(encoded: str, encoding: Literal["z85", "base64", "urlsafe"] = 
     if encoding == "z85":
         if Z85_AVAILABLE:
             return base64.z85decode(encoded.encode('ascii'))
-        else:
-            return base64.b64decode(encoded)
-    elif encoding == "base64":
         return base64.b64decode(encoded)
-    elif encoding == "urlsafe":
+    if encoding == "base64":
+        return base64.b64decode(encoded)
+    if encoding == "urlsafe":
         return base64.urlsafe_b64decode(encoded)
-    else:
-        raise ValueError(f"Unknown encoding: {encoding}")
+    raise ValueError(f"Unknown encoding: {encoding}")
 
 
 # Export availability status
 __all__ = [
-    'compress_vector',
-    'decompress_vector', 
-    'encode_vector',
-    'decode_vector',
     'Z85_AVAILABLE',
     'ZSTD_AVAILABLE',
+    'compress_vector',
+    'decode_vector',
+    'decompress_vector',
+    'encode_vector',
 ]

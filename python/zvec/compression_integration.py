@@ -18,23 +18,24 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import Literal, Union
+
 import numpy as np
 
 from .compression import (
-    compress_vector,
-    decompress_vector,
     Z85_AVAILABLE,
     ZSTD_AVAILABLE,
+    compress_vector,
+    decompress_vector,
 )
 
 # Export compression availability
 __all__ = [
+    'Z85_AVAILABLE',
+    'ZSTD_AVAILABLE',
     'compress_for_storage',
     'decompress_from_storage',
     'get_optimal_compression',
-    'Z85_AVAILABLE',
-    'ZSTD_AVAILABLE',
 ]
 
 
@@ -56,10 +57,9 @@ def get_optimal_compression(vector_size: int) -> str:
     """
     if ZSTD_AVAILABLE and vector_size > 10000:
         return "zstd"
-    elif vector_size > 50000:
+    if vector_size > 50000:
         return "gzip"
-    else:
-        return "none"
+    return "none"
 
 
 def compress_for_storage(
@@ -86,10 +86,7 @@ def compress_for_storage(
         >>> # Store compressed bytes in zvec document
     """
     # Convert numpy array to bytes if needed
-    if isinstance(data, np.ndarray):
-        data_bytes = data.tobytes()
-    else:
-        data_bytes = data
+    data_bytes = data.tobytes() if isinstance(data, np.ndarray) else data
     
     # Auto-select compression method
     if method == "auto":

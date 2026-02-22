@@ -21,11 +21,14 @@ Usage:
 from __future__ import annotations
 
 import gzip
-import io
 import lzma
-import sys
-from typing import Generator, Iterable, Literal, Optional
+from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Literal, Optional
+
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    import numpy as np
 
 # Check for Python 3.13+ features
 try:
@@ -34,20 +37,18 @@ try:
 except ImportError:
     Z85_AVAILABLE = False
 
-try:
-    import compression.zstd
-    ZSTD_AVAILABLE = True
-except ImportError:
-    ZSTD_AVAILABLE = False
+# Check for Python 3.14+ features (for future use)
+# compression.zstd will be available in Python 3.14+
+ZSTD_AVAILABLE = False  # Will be True when Python 3.14 is widely available
 
 __all__ = [
-    'StreamCompressor',
-    'StreamDecompressor', 
-    'chunked_compress',
-    'chunked_decompress',
-    'StreamingConfig',
     'Z85_AVAILABLE',
     'ZSTD_AVAILABLE',
+    'StreamCompressor',
+    'StreamDecompressor',
+    'StreamingConfig',
+    'chunked_compress',
+    'chunked_decompress',
 ]
 
 
@@ -203,7 +204,7 @@ class StreamDecompressor:
         if self._file:
             self._file.close()
     
-    def __iter__(self) -> Generator[bytes, None, None]:
+    def __iter__(self) -> Generator[bytes]:
         """Iterate over decompressed chunks."""
         if self._file is None:
             raise RuntimeError("Decompressor not opened. Use 'with' statement.")
@@ -230,7 +231,7 @@ def chunked_compress(
     data: bytes,
     method: Literal["gzip", "lzma"] = "gzip",
     chunk_size: int = 8192,
-) -> Generator[bytes, None, None]:
+) -> Generator[bytes]:
     """
     Compress data in chunks.
     
@@ -278,10 +279,9 @@ def chunked_decompress(
     """
     if method == "gzip":
         return gzip.decompress(compressed_data)
-    elif method == "lzma":
+    if method == "lzma":
         return lzma.decompress(compressed_data)
-    else:
-        raise ValueError(f"Unsupported method: {method}")
+    raise ValueError(f"Unsupported method: {method}")
 
 
 class VectorStreamCompressor:
@@ -291,7 +291,7 @@ class VectorStreamCompressor:
     Optimized for numpy arrays with metadata tracking.
     
     Examples:
-        >>> import numpy as np
+        >>> import numpy as np  # noqa: PLC0415
         >>> comp = VectorStreamCompressor("vectors.gz", dtype=np.float32)
         >>> 
         >>> # Write multiple batches
@@ -331,14 +331,14 @@ class VectorStreamCompressor:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return self._compressor.__exit__(exc_type, exc_val, exc_tb)
     
-    def write_batch(self, vectors: "np.ndarray") -> None:
+    def write_batch(self, vectors: np.ndarray) -> None:
         """
         Write a batch of vectors.
         
         Args:
             vectors: NumPy array of vectors
         """
-        import numpy as np
+        import numpy as np  # noqa: PLC0415
         
         if not isinstance(vectors, np.ndarray):
             raise TypeError("vectors must be a numpy array")

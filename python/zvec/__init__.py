@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 # Public API — grouped by category
 # ==============================
 
+from . import compression
 from . import model as model
 
 # —— Extensions ——
@@ -76,7 +77,6 @@ from .model.schema import CollectionSchema, CollectionStats, FieldSchema, Vector
 
 # —— tools ——
 from .tool import require_module
-from . import compression
 
 # —— typing ——
 from .typing import (
