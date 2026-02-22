@@ -17,7 +17,6 @@
 #include <rocksdb/statistics.h>
 #include <rocksdb/table.h>
 #include <rocksdb/utilities/checkpoint.h>
-#include <rocksdb/zstd_compress.h>
 #include <zvec/ailego/logger/logger.h>
 #include "rocksdb_context.h"
 
@@ -278,19 +277,19 @@ void RocksdbContext::prepare_options(
   create_opts_.OptimizeLevelStyleCompaction();
 
   // Enable compression for storage efficiency
-  // Using zstd for better compression ratio and speed
-  create_opts_.compression = rocksdb::CompressionType::kZstd;
+  // Using ZSTD for better compression ratio and speed
+  create_opts_.compression = rocksdb::CompressionType::kZSTD;
   
   // Enable compression for different levels
-  // Level 1-2: LZ4 (fast), Level 3-6: Zstd (balanced)
+  // Level 1-2: LZ4 (fast), Level 3-6: ZSTD (balanced)
   create_opts_.compression_per_level = {
       rocksdb::CompressionType::kNoCompression,  // Level 0 (memtable)
       rocksdb::CompressionType::kLZ4Compression, // Level 1
       rocksdb::CompressionType::kLZ4Compression, // Level 2
-      rocksdb::CompressionType::kZstdCompression, // Level 3
-      rocksdb::CompressionType::kZstdCompression, // Level 4
-      rocksdb::CompressionType::kZstdCompression, // Level 5
-      rocksdb::CompressionType::kZstdCompression, // Level 6
+      rocksdb::CompressionType::kZSTD,         // Level 3
+      rocksdb::CompressionType::kZSTD,         // Level 4
+      rocksdb::CompressionType::kZSTD,         // Level 5
+      rocksdb::CompressionType::kZSTD,         // Level 6
   };
 
   // Setting this to 1 means that when a memtable is full, it will be flushed
