@@ -20,11 +20,11 @@ from typing import Literal, Optional
 import numpy as np
 
 __all__ = [
-    'AcceleratedBackend',
-    'get_optimal_backend',
-    'get_accelerate_info',
-    'AVAILABLE',
+    
     'FAISS_AVAILABLE',
+    'AcceleratedBackend',
+    'get_accelerate_info',
+    'get_optimal_backend',
     'search_faiss',
     'search_numpy',
 ]
@@ -49,16 +49,14 @@ def get_optimal_backend() -> str:
 
 def get_accelerate_info() -> dict:
     """Get information about available acceleration backends."""
-    info = {
+    return {
         "platform": platform.system(),
         "machine": platform.machine(),
         "backends": {
             "faiss": FAISS_AVAILABLE,
         },
         "selected": BACKEND_TYPE,
-        "available": FAISS_AVAILABLE or True,  # NumPy always available
     }
-    return info
 
 
 class AcceleratedBackend:
@@ -142,8 +140,16 @@ def search_faiss(
     
     dim = database.shape[1]
     
-    # Create index
-    index = faiss.IndexFlatL2(dim)
+    # Create index (use IVF for large datasets)
+    if len(database) > 10000 and nlist > 0:
+        # Use IVF index for better performance on large datasets
+        quantizer = faiss.IndexFlatL2(dim)
+        index = faiss.IndexIVFFlat(quantizer, dim, min(nlist, len(database) // 10))
+        index.train(database.astype('float32'))
+    else:
+        # Use flat index for small datasets
+        index = faiss.IndexFlatL2(dim)
+    
     index.add(database.astype('float32'))
     
     # Search
