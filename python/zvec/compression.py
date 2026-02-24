@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import gzip
 import lzma
-import pickle
 from typing import Literal
 
 # Check for Python 3.13+ features
@@ -39,7 +38,7 @@ except ImportError:
 
 
 def compress_vector(
-    data: bytes, method: Literal["zstd", "gzip", "lzma", "pickle"] = "zstd"
+    data: bytes, method: Literal["zstd", "gzip", "lzma"] = "zstd"
 ) -> bytes:
     """
     Compress vector data.
@@ -65,13 +64,11 @@ def compress_vector(
         return gzip.compress(data)
     if method == "lzma":
         return lzma.compress(data)
-    if method == "pickle":
-        return pickle.dumps(data)
     raise ValueError(f"Unknown compression method: {method}")
 
 
 def decompress_vector(
-    data: bytes, method: Literal["zstd", "gzip", "lzma", "pickle"] = "zstd"
+    data: bytes, method: Literal["zstd", "gzip", "lzma"] = "zstd"
 ) -> bytes:
     """
     Decompress vector data.
@@ -96,8 +93,6 @@ def decompress_vector(
         return gzip.decompress(data)
     if method == "lzma":
         return lzma.decompress(data)
-    if method == "pickle":
-        return pickle.loads(data)
     raise ValueError(f"Unknown compression method: {method}")
 
 

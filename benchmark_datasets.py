@@ -23,7 +23,7 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from zvec.gpu import search_faiss, search_numpy
+from zvec.accelerate import search_faiss, search_numpy
 
 DATASETS = {
     "sift-128-euclidean": {

@@ -171,9 +171,7 @@ class GPUIndex:
         vectors = np.asarray(vectors, dtype=np.float32)
         self._index.add(vectors)
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:

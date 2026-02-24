@@ -13,9 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def generate_random_vectors(
-    n_vectors: int, dim: int, seed: int = 42
-) -> np.ndarray:
+def generate_random_vectors(n_vectors: int, dim: int, seed: int = 42) -> np.ndarray:
     """Generate random vectors for benchmarking.
 
     Args:
@@ -197,13 +195,9 @@ def print_results(results: list[dict[str, Any]]) -> None:
             f"{baseline / r['time']:.1f}x"
 
 
-
-
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Benchmark vector search performance"
-    )
+    parser = argparse.ArgumentParser(description="Benchmark vector search performance")
     parser.add_argument(
         "--vectors",
         type=int,
@@ -240,9 +234,9 @@ def main():
     sizes = [int(s) for s in args.sizes.split(",")] if args.sizes else [args.vectors]
 
     for n_vectors in sizes:
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Testing with {n_vectors:,} vectors")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         results = run_benchmarks(
             n_vectors=n_vectors,

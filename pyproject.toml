@@ -47,6 +47,9 @@ Repository = "https://github.com/alibaba/zvec"
 "Documentation" = "https://zvec.org"
 
 [project.optional-dependencies]
+accelerate = [
+    "faiss-cpu >=1.7",
+]
 gpu = [
     "faiss-gpu >=1.7",
 ]
@@ -253,6 +256,7 @@ known-first-party = ["zvec"]
 "python/tests/**" = ["ALL"]
 "bench/core/**" = ["ALL"]
 "benchmark_*.py" = ["ALL"]
+"python/zvec/backends/benchmark.py" = ["ALL"]
 "python/zvec/__init__.py" = [
     "F401",   # Unused import (for __all__)
     "E402",   # Module level import not at top (C++ module init order)

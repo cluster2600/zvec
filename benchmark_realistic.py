@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "python"))
 
-from zvec.gpu import search_faiss, search_numpy
+from zvec.accelerate import search_faiss, search_numpy
 
 
 def generate_clustered_data(n_vectors: int, dim: int, n_clusters: int = 100):

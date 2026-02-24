@@ -51,14 +51,15 @@ class TestCompression:
 
         assert decompressed == data
 
-    def test_compress_decompress_pickle(self, sample_vectors):
-        """Test pickle compression and decompression."""
+    def test_compress_decompress_invalid_method(self, sample_vectors):
+        """Test that invalid compression method raises ValueError."""
         data = sample_vectors.tobytes()
 
-        compressed = compress_vector(data, method="pickle")
-        decompressed = decompress_vector(compressed, method="pickle")
+        with pytest.raises(ValueError, match="Unknown compression method"):
+            compress_vector(data, method="invalid")
 
-        assert decompressed == data
+        with pytest.raises(ValueError, match="Unknown compression method"):
+            decompress_vector(data, method="invalid")
 
     def test_compression_ratio(self, sample_vectors):
         """Test that compression actually reduces size."""
