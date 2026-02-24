@@ -114,7 +114,7 @@ class HNSWIndex:
                 heapq.heappop(results)
 
             # Explore neighbors
-            for neighbor_id, neighbor_dist in neighbors:
+            for neighbor_id, _neighbor_dist in neighbors:
                 if neighbor_id in visited:
                     continue
                 visited.add(neighbor_id)
@@ -149,11 +149,9 @@ class HNSWIndex:
             self.graph = [{} for _ in range(1)]
             self.entry_point = 0
 
-        logger.info(f"Added {n_vectors} vectors to HNSW index")
+        logger.info("Added %d vectors to HNSW index", n_vectors)
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:
@@ -212,10 +210,10 @@ class HNSWIndex:
         }
         with open(filepath, "wb") as f:
             pickle.dump(data, f)
-        logger.info(f"Saved HNSW index to {filepath}")
+        logger.info("Saved HNSW index to %s", filepath)
 
     @classmethod
-    def load(cls, filepath: str) -> "HNSWIndex":
+    def load(cls, filepath: str) -> HNSWIndex:
         """Load index from file.
 
         Args:
@@ -239,7 +237,7 @@ class HNSWIndex:
         index.entry_point = data["entry_point"]
         index.max_level = data["max_level"]
 
-        logger.info(f"Loaded HNSW index from {filepath}")
+        logger.info("Loaded HNSW index from %s", filepath)
         return index
 
 
@@ -248,7 +246,7 @@ def create_hnsw_index(
     M: int = 16,
     efConstruction: int = 200,
     efSearch: int = 50,
-    use_faiss: bool = True,
+    _use_faiss: bool = True,
 ) -> HNSWIndex | Any:
     """Create HNSW index.
 

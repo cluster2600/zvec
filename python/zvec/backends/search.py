@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -52,7 +51,7 @@ def compute_distance_table_fast(
     Returns:
         Distance table (Q x m x k).
     """
-    n_queries, dim = queries.shape
+    n_queries, _dim = queries.shape
     m = codebooks.shape[0]
     sub_dim = codebooks.shape[2]
 
@@ -60,14 +59,12 @@ def compute_distance_table_fast(
     queries_reshaped = queries.reshape(n_queries, m, sub_dim)
 
     # Compute distances for each sub-vector
-    distance_table = np.zeros(
-        (n_queries, m, codebooks.shape[1]), dtype=np.float32
-    )
+    distance_table = np.zeros((n_queries, m, codebooks.shape[1]), dtype=np.float32)
 
     for i in range(m):
         # Broadcasting: (Q, 1, sub_dim) - (1, k, sub_dim) -> (Q, k, sub_dim)
-        diff = queries_reshaped[:, i:i+1, :] - codebooks[i:i+1, :, :]
-        distance_table[:, i, :] = np.sum(diff ** 2, axis=2)
+        diff = queries_reshaped[:, i : i + 1, :] - codebooks[i : i + 1, :, :]
+        distance_table[:, i, :] = np.sum(diff**2, axis=2)
 
     return distance_table
 
@@ -112,7 +109,7 @@ def batch_search(
         )
         all_distances[start:end] = batch_distances
 
-        logger.info(f"Processed {end}/{n_queries} queries")
+        logger.info("Processed %d/%d queries", end, n_queries)
 
     # Get top k for each query
     indices = np.argsort(all_distances, axis=1)[:, :k]
@@ -143,7 +140,6 @@ def search_with_reranking(
         Tuple of (distances, indices).
     """
     n_queries = queries.shape[0]
-    n_database = database.shape[0]
 
     # Initial PQ search
     distance_table = compute_distance_table_fast(queries, codebooks)
@@ -163,7 +159,7 @@ def search_with_reranking(
 
         # Compute exact L2 distances
         diff = candidate_vectors - queries[i]
-        exact_distances = np.sum(diff ** 2, axis=1)
+        exact_distances = np.sum(diff**2, axis=1)
 
         # Sort by exact distance
         sorted_order = np.argsort(exact_distances)

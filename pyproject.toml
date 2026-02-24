@@ -257,6 +257,9 @@ known-first-party = ["zvec"]
 "bench/core/**" = ["ALL"]
 "benchmark_*.py" = ["ALL"]
 "python/zvec/backends/benchmark.py" = ["ALL"]
+"python/zvec/backends/apple_silicon.py" = ["PLC0415"]
+"python/zvec/backends/hnsw.py" = ["PLC0415", "PTH123"]
+"python/zvec/backends/search.py" = ["PLC0415"]
 "python/zvec/__init__.py" = [
     "F401",   # Unused import (for __all__)
     "E402",   # Module level import not at top (C++ module init order)
