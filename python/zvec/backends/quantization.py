@@ -60,22 +60,21 @@ class PQEncoder:
         sub_vectors = vectors.reshape(n_vectors, self.m, sub_dim)
 
         # Train k-means for each sub-vector
-        self.codebooks = np.zeros(
-            (self.m, self.code_size, sub_dim), dtype=np.float32
-        )
+        self.codebooks = np.zeros((self.m, self.code_size, sub_dim), dtype=np.float32)
 
         for i in range(self.m):
             sub = sub_vectors[:, i, :]
             # Simple k-means
-            centroids = sub[np.random.choice(n_vectors, self.k, replace=False)]
-            
+            rng = np.random.default_rng()
+            centroids = sub[rng.choice(n_vectors, self.k, replace=False)]
+
             for _ in range(20):  # Max iterations
                 # Assign to nearest centroid
                 distances = np.linalg.norm(
                     sub[:, np.newaxis, :] - centroids[np.newaxis, :, :], axis=2
                 )
                 labels = np.argmin(distances, axis=1)
-                
+
                 # Update centroids
                 for j in range(self.k):
                     mask = labels == j
@@ -85,9 +84,7 @@ class PQEncoder:
             self.codebooks[i] = centroids
 
         self._is_trained = True
-        logger.info(
-            f"PQ trained: m={self.m}, nbits={self.nbits}, k={self.k}"
-        )
+        logger.info("PQ trained: m=%d, nbits=%d, k=%d", self.m, self.nbits, self.k)
 
     def encode(self, vectors: np.ndarray) -> np.ndarray:
         """Encode vectors to PQ codes.
@@ -141,9 +138,7 @@ class PQEncoder:
 
         return reconstructed.reshape(n_vectors, dim)
 
-    def compute_distance_table(
-        self, queries: np.ndarray
-    ) -> np.ndarray:
+    def compute_distance_table(self, queries: np.ndarray) -> np.ndarray:
         """Compute distance table for fast distance calculation.
 
         Args:
@@ -160,9 +155,7 @@ class PQEncoder:
         sub_dim = dim // self.m
 
         sub_queries = queries.reshape(n_queries, self.m, sub_dim)
-        distance_table = np.zeros(
-            (n_queries, self.m, self.k), dtype=np.float32
-        )
+        distance_table = np.zeros((n_queries, self.m, self.k), dtype=np.float32)
 
         for i in range(self.m):
             sub = sub_queries[:, i, :]
@@ -219,9 +212,7 @@ class PQIndex:
         self.database = vectors
         self.codes = self.encoder.encode(vectors)
 
-    def search(
-        self, queries: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:
@@ -247,8 +238,6 @@ class PQIndex:
 
         # Get k nearest
         indices = np.argsort(all_distances, axis=1)[:, :k]
-        distances = np.take_along_axis(
-            all_distances, indices, axis=1
-        )[:, :k]
+        distances = np.take_along_axis(all_distances, indices, axis=1)[:, :k]
 
         return distances, indices
