@@ -47,6 +47,9 @@ Repository = "https://github.com/alibaba/zvec"
 "Documentation" = "https://zvec.org"
 
 [project.optional-dependencies]
+gpu = [
+    "faiss-gpu >=1.7",
+]
 test = [
     "pytest >=8.0",
     "pytest-cov >=4.1",
