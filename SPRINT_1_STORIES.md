@@ -12,9 +12,9 @@
 - [ ] Message d'erreur clair si GPU non disponible
 
 ### Tasks
-- [ ] Mettre à jour pyproject.toml
-- [ ] Ajouter script de vérification GPU
-- [ ] Créer message d'erreur descriptif
+- [x] Mettre à jour pyproject.toml
+- [x] Ajouter script de vérification GPU
+- [x] Créer message d'erreur descriptif
 
 ---
 
@@ -30,9 +30,9 @@
 - [ ] Fallback CPU si aucun GPU
 
 ### Tasks
-- [ ] Créer module `zvec.backends`
-- [ ] Implémenter détection hardware
-- [ ] Ajouter logging de quel backend est utilisé
+- [x] Créer moduleends`
+- [ `zvec.backx] Implémenter détection hardware
+- [x] Ajouter logging de quel backend est utilisé
 
 ---
 
@@ -84,7 +84,7 @@
 - [ ] Documentation des résultats
 
 ### Tasks
-- [ ] Créer benchmark_runner.py
+- [x] Créer benchmark_runner.py
 - [ ] Tester sur 100K, 1M, 10M vecteurs
 - [ ] Générer graphiques de comparaison
 - [ ] Ajouter à la documentation
