@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 # ==============================
 
 from . import model as model
+from . import backends as backends
 
 # —— Extensions ——
 from .extension import (
