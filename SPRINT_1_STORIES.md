@@ -60,13 +60,13 @@
 **Afin que** mon application continue à fonctionner sans interruption.
 
 ### Critères d'acceptation
-- [ ] Détection erreur GPU
-- [ ] Retry automatique sur CPU
-- [ ] Logging de l'échec GPU
+- [x] Détection erreur GPU
+- [x] Retry automatique sur CPU
+- [x] Logging de l'échec GPU
 
 ### Tasks
-- [ ] Implémenter try/except avec fallback
-- [ ] Ajouter option pour forcer CPU
+- [x] Implémenter try/except avec fallback
+- [x] Ajouter option pour forcer CPU
 - [ ] Créer tests de fallback
 
 ---
