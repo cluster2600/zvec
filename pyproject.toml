@@ -45,6 +45,12 @@ Repository = "https://github.com/alibaba/zvec"
 "Documentation" = "https://zvec.org"
 
 [project.optional-dependencies]
+accelerate = [
+    "faiss-cpu >=1.7",
+]
+gpu = [
+    "faiss-gpu >=1.7",
+]
 test = [
     "pytest >=8.0",
     "pytest-cov >=4.1",
@@ -258,6 +264,20 @@ known-first-party = ["zvec"]
 "python/zvec/extension/**" = [
     "PLC0415",  # Import outside top-level (dynamic imports in _get_model)
 ]
+"python/zvec/backends/apple_silicon.py" = [
+    "PLC0415",  # Lazy imports for optional torch dependency
+]
+"python/zvec/backends/benchmark.py" = [
+    "PLC0415",  # Lazy imports for optional faiss dependency
+]
+"python/zvec/backends/hnsw.py" = [
+    "PLC0415",  # Lazy imports for optional faiss/random
+    "PTH123",   # open() used for pickle (Path.open not needed)
+]
+"python/zvec/backends/search.py" = [
+    "PLC0415",  # Lazy imports
+]
+"benchmark_*.py" = ["ALL"]
 
 [tool.ruff.format]
 indent-style = "space"
