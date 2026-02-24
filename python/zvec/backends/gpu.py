@@ -211,6 +211,32 @@ class GPUIndex:
         """Return the number of vectors in the index."""
         return self._index.ntotal
 
+    def fallback_to_cpu(self) -> None:
+        """Fallback to CPU index if GPU fails.
+
+        This method moves the index from GPU to CPU and updates
+        the internal state to use CPU for all operations.
+        """
+        if not self.use_gpu:
+            logger.info("Already using CPU backend")
+            return
+
+        try:
+            # Move index from GPU to CPU
+            self._index = faiss.index_gpu_to_cpu(self._index)
+            self.use_gpu = False
+
+            # Cleanup GPU resources
+            if self._gpu_resources is not None:
+                with contextlib.suppress(Exception):
+                    del self._gpu_resources
+                self._gpu_resources = None
+
+            logger.info("Successfully fallback to CPU index")
+        except Exception as e:
+            logger.error("Failed to fallback to CPU: %s", e)
+            raise
+
     def __del__(self):
         """Cleanup GPU resources."""
         if self._gpu_resources is not None:
@@ -244,3 +270,68 @@ def create_index(
         nlist=nlist,
         use_gpu=use_gpu,
     )
+
+
+def create_index_with_fallback(
+    dim: int,
+    index_type: str = "flat",
+    metric: str = "L2",
+    nlist: int = 100,
+    use_gpu: bool | None = None,
+    fallback_on_error: bool = True,
+) -> GPUIndex:
+    """Create an index with automatic fallback to CPU on GPU errors.
+
+    This function creates an index and automatically falls back to CPU
+    if GPU operations fail.
+
+    Args:
+        dim: Dimensionality of the vectors.
+        index_type: Type of index ("flat", "IVF", "IVF-PQ", "HNSW").
+        metric: Distance metric ("L2" or "IP").
+        nlist: Number of clusters for IVF indexes.
+        use_gpu: Force GPU usage (None for auto-detect).
+        fallback_on_error: If True, automatically fallback to CPU on errors.
+
+    Returns:
+        GPUIndex instance.
+
+    Example:
+        >>> index = create_index_with_fallback(128, use_gpu=True)
+        >>> index.add(vectors)  # Falls back to CPU automatically if GPU fails
+    """
+    index = GPUIndex(
+        dim=dim,
+        index_type=index_type,
+        metric=metric,
+        nlist=nlist,
+        use_gpu=use_gpu,
+    )
+
+    if not fallback_on_error:
+        return index
+
+    # Wrap search and add methods to fallback on error
+    original_search = index.search
+    original_add = index.add
+
+    def search_with_fallback(query: np.ndarray, k: int = 10):
+        try:
+            return original_search(query, k)
+        except Exception as e:
+            logger.warning("GPU search failed, fallback to CPU: %s", e)
+            index.fallback_to_cpu()
+            return original_search(query, k)
+
+    def add_with_fallback(vectors: np.ndarray):
+        try:
+            return original_add(vectors)
+        except Exception as e:
+            logger.warning("GPU add failed, fallback to CPU: %s", e)
+            index.fallback_to_cpu()
+            return original_add(vectors)
+
+    index.search = search_with_fallback
+    index.add = add_with_fallback
+
+    return index
