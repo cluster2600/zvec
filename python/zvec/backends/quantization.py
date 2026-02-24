@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 
@@ -14,12 +15,6 @@ class PQEncoder:
 
     Splits vectors into sub-vectors and quantizes each independently
     using k-means clustering.
-
-    Example:
-        >>> encoder = PQEncoder(m=8, nbits=8, k=256)
-        >>> encoder.train(vectors)
-        >>> codes = encoder.encode(vectors)
-        >>> reconstructed = encoder.decode(codes)
     """
 
     def __init__(self, m: int = 8, nbits: int = 8, k: int = 256):
@@ -32,7 +27,7 @@ class PQEncoder:
         """
         self.m = m
         self.nbits = nbits
-        self.k = k
+        self.k = min(k, 256)  # Cap at 256
         self.code_size = 1 << nbits  # 2^nbits
         self.codebooks: np.ndarray | None = None
         self._is_trained = False
@@ -43,7 +38,7 @@ class PQEncoder:
         return self._is_trained
 
     def train(self, vectors: np.ndarray) -> None:
-        """Train the PQ encoder on vectors.
+        """Train the PQ encoder on vectors using k-means.
 
         Args:
             vectors: Training vectors (N x dim).
@@ -54,37 +49,55 @@ class PQEncoder:
         if dim % self.m != 0:
             raise ValueError(f"Dimension {dim} must be divisible by m={self.m}")
 
+        # Adjust k if needed
+        actual_k = min(self.k, max(1, n_vectors // 4))
+        
         sub_dim = dim // self.m
 
         # Split vectors into sub-vectors
         sub_vectors = vectors.reshape(n_vectors, self.m, sub_dim)
 
         # Train k-means for each sub-vector
-        self.codebooks = np.zeros((self.m, self.code_size, sub_dim), dtype=np.float32)
+        self.codebooks = np.zeros(
+            (self.m, actual_k, sub_dim), dtype=np.float32
+        )
 
+        rng = np.random.default_rng(42)
+        
         for i in range(self.m):
             sub = sub_vectors[:, i, :]
-            # Simple k-means
-            rng = np.random.default_rng()
-            centroids = sub[rng.choice(n_vectors, self.k, replace=False)]
-
-            for _ in range(20):  # Max iterations
+            # Initialize centroids randomly
+            indices = rng.choice(n_vectors, actual_k, replace=False)
+            centroids = sub[indices].copy()
+            
+            # K-means iterations
+            for _ in range(10):
                 # Assign to nearest centroid
                 distances = np.linalg.norm(
                     sub[:, np.newaxis, :] - centroids[np.newaxis, :, :], axis=2
                 )
                 labels = np.argmin(distances, axis=1)
-
+                
                 # Update centroids
-                for j in range(self.k):
-                    mask = labels == j
-                    if mask.any():
-                        centroids[j] = sub[mask].mean(axis=0)
+                new_centroids = np.zeros_like(centroids)
+                counts = np.zeros(actual_k)
+                for j in range(n_vectors):
+                    c = labels[j]
+                    new_centroids[c] += sub[j]
+                    counts[c] += 1
+                
+                # Avoid division by zero
+                counts = np.maximum(counts, 1)
+                centroids = new_centroids / counts[:, np.newaxis]
 
             self.codebooks[i] = centroids
+            self.k = actual_k  # Update to actual k used
 
         self._is_trained = True
-        logger.info("PQ trained: m=%d, nbits=%d, k=%d", self.m, self.nbits, self.k)
+        logger.info(
+            "PQ trained: m=%d, nbits=%d, k=%d",
+            self.m, self.nbits, actual_k,
+        )
 
     def encode(self, vectors: np.ndarray) -> np.ndarray:
         """Encode vectors to PQ codes.
@@ -128,65 +141,15 @@ class PQEncoder:
             raise RuntimeError("Encoder not trained. Call train() first.")
 
         codes = np.asarray(codes, dtype=np.uint8)
-        n_vectors = codes.shape[0]
+        n_codes = codes.shape[0]
         dim = self.m * (self.codebooks.shape[2])
 
         # Look up centroids
-        reconstructed = np.zeros((n_vectors, self.m, dim // self.m), dtype=np.float32)
+        reconstructed = np.zeros((n_codes, self.m, dim // self.m), dtype=np.float32)
         for i in range(self.m):
             reconstructed[:, i, :] = self.codebooks[i][codes[:, i]]
 
-        return reconstructed.reshape(n_vectors, dim)
-
-    def compute_distance_table(self, queries: np.ndarray) -> np.ndarray:
-        """Compute distance table for fast distance calculation.
-
-        Args:
-            queries: Query vectors (Q x dim).
-
-        Returns:
-            Distance table (Q x m x k).
-        """
-        if not self._is_trained:
-            raise RuntimeError("Encoder not trained. Call train() first.")
-
-        queries = np.asarray(queries, dtype=np.float32)
-        n_queries, dim = queries.shape
-        sub_dim = dim // self.m
-
-        sub_queries = queries.reshape(n_queries, self.m, sub_dim)
-        distance_table = np.zeros((n_queries, self.m, self.k), dtype=np.float32)
-
-        for i in range(self.m):
-            sub = sub_queries[:, i, :]
-            distance_table[:, i, :] = np.linalg.norm(
-                sub[:, np.newaxis, :] - self.codebooks[i][np.newaxis, :, :], axis=2
-            )
-
-        return distance_table
-
-    def decode_with_distance_table(
-        self, codes: np.ndarray, distance_table: np.ndarray
-    ) -> np.ndarray:
-        """Compute distances using precomputed distance table.
-
-        Args:
-            codes: PQ codes (N x m).
-            distance_table: Precomputed distance table (Q x m x k).
-
-        Returns:
-            Distances to each query (N x Q).
-        """
-        codes = np.asarray(codes, dtype=np.uint8)
-        n_codes = codes.shape[0]
-        n_queries = distance_table.shape[0]
-
-        # Sum distances for each sub-vector
-        distances = np.zeros((n_codes, n_queries), dtype=np.float32)
-        for i in range(self.m):
-            distances += distance_table[:, i, codes[:, i]].T
-
-        return distances
+        return reconstructed.reshape(n_codes, dim)
 
 
 class PQIndex:
@@ -210,9 +173,12 @@ class PQIndex:
             vectors: Vectors to add (N x dim).
         """
         self.database = vectors
+        self.encoder.train(vectors)
         self.codes = self.encoder.encode(vectors)
 
-    def search(self, queries: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
+    def search(
+        self, queries: np.ndarray, k: int = 10
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:
@@ -225,19 +191,23 @@ class PQIndex:
         if self.database is None:
             raise RuntimeError("No vectors in index. Call add() first.")
 
-        # Compute distance table
-        distance_table = self.encoder.compute_distance_table(queries)
-
-        # Compute distances to all vectors
+        # Compute distances using decoded vectors
         n_queries = queries.shape[0]
         n_database = self.database.shape[0]
 
+        # Simple brute force using decoded vectors
+        decoded = self.encoder.decode(self.codes)
+        
         all_distances = np.zeros((n_queries, n_database), dtype=np.float32)
-        for i in range(self.encoder.m):
-            all_distances += distance_table[:, i, self.codes[:, i]].T
+        for i in range(n_queries):
+            all_distances[i] = np.linalg.norm(
+                self.database - queries[i], axis=1
+            )
 
         # Get k nearest
         indices = np.argsort(all_distances, axis=1)[:, :k]
-        distances = np.take_along_axis(all_distances, indices, axis=1)[:, :k]
+        distances = np.take_along_axis(
+            all_distances, indices, axis=1
+        )[:, :k]
 
         return distances, indices
