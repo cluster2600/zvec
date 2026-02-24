@@ -30,8 +30,7 @@
 - [ ] Fallback CPU si aucun GPU
 
 ### Tasks
-- [x] Créer moduleends`
-- [ `zvec.backx] Implémenter détection hardware
+- [x] Créer module `zvec.backends`
 - [x] Ajouter logging de quel backend est utilisé
 
 ---
