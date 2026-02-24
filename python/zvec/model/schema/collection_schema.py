@@ -87,7 +87,7 @@ class CollectionSchema:
             raise ValueError(
                 f"schema validate failed: compression must be one of {valid_compression}, got {compression}"
             )
-        
+
         self._compression = compression
 
         # handle fields

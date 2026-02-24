@@ -249,6 +249,7 @@ known-first-party = ["zvec"]
 [tool.ruff.lint.per-file-ignores]
 "python/tests/**" = ["ALL"]
 "bench/core/**" = ["ALL"]
+"benchmark_*.py" = ["ALL"]
 "python/zvec/__init__.py" = [
     "F401",   # Unused import (for __all__)
     "E402",   # Module level import not at top (C++ module init order)
