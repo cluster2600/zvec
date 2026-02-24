@@ -23,9 +23,7 @@ from __future__ import annotations
 import gzip
 import lzma
 from collections.abc import Generator, Iterable
-from typing import TYPE_CHECKING, Literal, Optional
-
-from typing_extensions import TypedDict
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict
 
 if TYPE_CHECKING:
     import numpy as np
