@@ -84,10 +84,13 @@ class OPQEncoder:
         logger.info("OPQ training complete")
 
     def _learn_rotation(self, vectors: np.ndarray) -> None:
-        """Learn optimal rotation matrix.
+        """Learn optimal rotation matrix via Orthogonal Procrustes.
 
-        Uses a simplified SVD approach to find rotation that
-        minimizes quantization error.
+        Solves min_R ||X @ R^T - Y_hat||_F subject to R^T @ R = I
+        using SVD: M = X^T @ Y_hat, SVD(M) = U S V^T, R = V @ U^T.
+
+        Reference: Ge et al. "Optimized Product Quantization." TPAMI, 2014.
+        See also: src/ailego/algorithm/opq.h for the C++ implementation.
 
         Args:
             vectors: Original vectors (N x dim).
@@ -99,13 +102,11 @@ class OPQEncoder:
         # Decode to get approximate vectors
         decoded = self.pq.decode(codes)
 
-        # Compute error
-        error = rotated - decoded
-
-        # Learn rotation from error (simplified)
-        # In full OPQ, this uses more sophisticated optimization
-        U, _ = np.linalg.qr(error.T)
-        self.rotation_matrix = U[:vectors.shape[1], :vectors.shape[1]].T
+        # Orthogonal Procrustes: find R minimizing ||X @ R^T - Y_hat||
+        # M = X^T @ Y_hat
+        M = vectors.T @ decoded
+        U, _, Vt = np.linalg.svd(M, full_matrices=True)
+        self.rotation_matrix = (Vt.T @ U.T).astype(np.float32)
 
     def rotate(self, vectors: np.ndarray) -> np.ndarray:
         """Rotate vectors using the learned rotation matrix.
@@ -219,9 +220,7 @@ class ScalarQuantizer:
             raise RuntimeError("Quantizer not trained. Call train() first.")
 
         scaled = vectors / self.scale
-        quantized = np.round(scaled).astype(
-            np.int8 if self.bits == 8 else np.int16
-        )
+        quantized = np.round(scaled).astype(np.int8 if self.bits == 8 else np.int16)
         return quantized
 
     def decode(self, quantized: np.ndarray) -> np.ndarray:
