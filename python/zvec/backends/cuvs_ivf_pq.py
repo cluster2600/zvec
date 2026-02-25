@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Try to import cuVS
 CUVS_AVAILABLE = False
 try:
-    import cuvs.ivf_pq as cuvs_ivf_pq
+    import cuvs.neighbors.ivf_pq as cuvs_ivf_pq
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_ivf_pq = None
@@ -109,23 +109,20 @@ class cuVSIVFPQIndex:
             return self
 
         try:
-            # Build parameters
-            build_params = self._create_build_params()
-
-            # Create index
-            self._index = cuvs_ivf_pq.Index(
-                metric="sq_l2",  # Use squared L2 for speed
-                dim=dim,
-                nlist=self.nlist,
+            # cuVS API: ivf_pq.build(IndexParams, dataset) -> Index
+            build_params = cuvs_ivf_pq.IndexParams(
+                metric="sqeuclidean",
+                n_lists=self.nlist,
                 pq_bits=self.pq_bits,
-                pq_dim=self.pq_dim,
+                pq_dim=self.pq_dim if self.pq_dim > 0 else 0,
+                kmeans_n_iters=20,
+                kmeans_trainset_fraction=0.1,
             )
 
-            # Train
-            self._index.train(vectors, **build_params)
+            self._index = cuvs_ivf_pq.build(build_params, vectors)
 
             logger.info(
-                "cuVS IVF-PQ trained: nlist=%d, pq_bits=%d",
+                "cuVS IVF-PQ built: nlist=%d, pq_bits=%d",
                 self.nlist,
                 self.pq_bits,
             )
@@ -186,10 +183,21 @@ class cuVSIVFPQIndex:
             return distances, indices
 
         try:
-            search_params = self._create_search_params()
-            search_params["k"] = k
+            # cuVS API: ivf_pq.search(SearchParams, index, queries, k)
+            # queries must be CUDA arrays — convert via cupy
+            import cupy as cp
 
-            distances, indices = self._index.search(query, **search_params)
+            search_params = cuvs_ivf_pq.SearchParams(
+                n_probes=self.nprobe,
+            )
+            query_device = cp.asarray(query, dtype=cp.float32)
+
+            distances, indices = cuvs_ivf_pq.search(
+                search_params, self._index, query_device, k
+            )
+            # Convert from device arrays to numpy
+            distances = cp.asnumpy(cp.asarray(distances))
+            indices = cp.asnumpy(cp.asarray(indices)).astype(np.int64)
             return distances, indices
 
         except Exception as e:
