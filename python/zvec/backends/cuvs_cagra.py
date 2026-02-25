@@ -85,22 +85,20 @@ class cuVSCAGRAIndex:
             return self
 
         try:
-            # Build CAGRA index
-            self._index = cuvs_cagra.Index(
-                metric="sq_l2",
-                dim=dim,
+            # cuVS API: cagra.build(IndexParams, dataset) -> Index
+            build_params = cuvs_cagra.IndexParams(
+                metric="sqeuclidean",
+                graph_degree=self.graph_degree,
+                intermediate_graph_degree=self.intermediate_graph_degree,
             )
 
-            build_params = {
-                "graph_degree": self.graph_degree,
-                "intermediate_graph_degree": self.intermediate_graph_degree,
-            }
-
-            self._index.build(vectors, **build_params)
+            self._index = cuvs_cagra.build(build_params, vectors)
 
             logger.info(
-                "cuVS CAGRA built: graph_degree=%d",
+                "cuVS CAGRA built: graph_degree=%d, n=%d, dim=%d",
                 self.graph_degree,
+                n_vectors,
+                dim,
             )
 
         except Exception as e:
@@ -138,14 +136,19 @@ class cuVSCAGRAIndex:
             return distances, indices
 
         try:
-            search_params = {
-                "k": k,
-                "num_iters": num_iters,
-                "nn_min_num": self.nn_min_num,
-                "nn_max_num": self.nn_max_num,
-            }
+            # cuVS API: cagra.search(SearchParams, index, queries, k)
+            # queries must be CUDA arrays — convert via cupy
+            import cupy as cp
 
-            distances, indices = self._index.search(query, **search_params)
+            search_params = cuvs_cagra.SearchParams()
+            query_device = cp.asarray(query, dtype=cp.float32)
+
+            distances, indices = cuvs_cagra.search(
+                search_params, self._index, query_device, k
+            )
+            # Convert from device arrays to numpy
+            distances = cp.asnumpy(cp.asarray(distances))
+            indices = cp.asnumpy(cp.asarray(indices)).astype(np.int64)
             return distances, indices
 
         except Exception as e:
