@@ -72,6 +72,27 @@ if APPLE_SILICON:
     except ImportError:
         pass
 
+# Try to detect cuVS (NVIDIA RAPIDS)
+CUVS_AVAILABLE = False
+try:
+    import cuvs  # noqa: F401
+
+    CUVS_AVAILABLE = True
+    logger.info("cuVS (NVIDIA RAPIDS) available")
+except ImportError:
+    pass
+
+# Try to detect C++ cuVS bindings (via _zvec pybind11)
+CPP_CUVS_AVAILABLE = False
+try:
+    import _zvec
+
+    CPP_CUVS_AVAILABLE = hasattr(_zvec, "create_cagra_float")
+    if CPP_CUVS_AVAILABLE:
+        logger.info("C++ cuVS bindings available (preferred path)")
+except ImportError:
+    pass
+
 
 def get_available_backends() -> dict[str, bool]:
     """Return a dictionary of available backends.
@@ -80,6 +101,8 @@ def get_available_backends() -> dict[str, bool]:
         Dictionary with backend availability information.
     """
     return {
+        "cpp_cuvs": CPP_CUVS_AVAILABLE,
+        "cuvs": CUVS_AVAILABLE,
         "faiss": FAISS_AVAILABLE,
         "faiss_gpu": FAISS_GPU_AVAILABLE,
         "faiss_cpu": FAISS_CPU_AVAILABLE,
@@ -93,9 +116,19 @@ def get_available_backends() -> dict[str, bool]:
 def get_optimal_backend() -> str:
     """Determine the optimal backend for the current system.
 
+    Priority: C++ cuVS > Python cuVS > FAISS GPU > MPS > FAISS CPU > NumPy.
+
     Returns:
-        Name of the optimal backend: "faiss_gpu", "faiss_cpu", or "numpy".
+        Name of the optimal backend.
     """
+    if CPP_CUVS_AVAILABLE:
+        logger.info("Using C++ cuVS backend (native, preferred)")
+        return "cpp_cuvs"
+
+    if CUVS_AVAILABLE:
+        logger.info("Using Python cuVS backend")
+        return "cuvs"
+
     if FAISS_GPU_AVAILABLE and NVIDIA_GPU_DETECTED:
         logger.info("Using FAISS GPU backend")
         return "faiss_gpu"
@@ -118,7 +151,7 @@ def is_gpu_available() -> bool:
     Returns:
         True if GPU acceleration is available.
     """
-    return FAISS_GPU_AVAILABLE or MPS_AVAILABLE
+    return CPP_CUVS_AVAILABLE or CUVS_AVAILABLE or FAISS_GPU_AVAILABLE or MPS_AVAILABLE
 
 
 def get_backend_info() -> dict:
