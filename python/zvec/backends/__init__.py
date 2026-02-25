@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from zvec.backends.detect import (
+    CPP_CUVS_AVAILABLE,
+    CUVS_AVAILABLE,
     FAISS_AVAILABLE,
     FAISS_CPU_AVAILABLE,
     FAISS_GPU_AVAILABLE,
@@ -18,6 +20,8 @@ from zvec.backends.gpu import (
 )
 
 __all__ = [
+    "CPP_CUVS_AVAILABLE",
+    "CUVS_AVAILABLE",
     "FAISS_AVAILABLE",
     "FAISS_CPU_AVAILABLE",
     "FAISS_GPU_AVAILABLE",
