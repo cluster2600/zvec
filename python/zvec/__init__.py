@@ -56,6 +56,9 @@ from .model import schema as schema
 from .model.collection import Collection
 from .model.doc import Doc
 
+# —— GPU-accelerated indexing ——
+from .gpu_index import GpuIndex
+
 # —— Query & index parameters ——
 from .model.param import (
     AddColumnOption,
@@ -101,6 +104,7 @@ __all__ = [
     # Core classes
     "Collection",
     "Doc",
+    "GpuIndex",
     # Schema
     "CollectionSchema",
     "FieldSchema",

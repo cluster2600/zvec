@@ -377,3 +377,45 @@ class Collection:
             reranker=reranker,
         )
         return self._querier.execute(ctx, self._obj)
+
+    # ========== GPU-Accelerated Index ==========
+
+    def gpu_index(
+        self,
+        field_name: str,
+        backend: str = "auto",
+        **params,
+    ):
+        """Create a GPU-accelerated index for a vector field.
+
+        Returns a :class:`~zvec.gpu_index.GpuIndex` bound to this collection.
+        The index must be populated by calling :meth:`GpuIndex.build` with
+        vectors and document IDs before it can be queried.
+
+        Backend selection priority (C++ first):
+            1. C++ cuVS (native pybind11 — zero-copy, fastest)
+            2. Python cuVS CAGRA / IVF-PQ
+            3. FAISS GPU
+            4. Apple MPS
+            5. FAISS CPU (fallback)
+
+        Args:
+            field_name: Name of the vector field to index.
+            backend: Backend preference (``"auto"``, ``"cpp_cuvs_cagra"``,
+                ``"cuvs_cagra"``, ``"faiss_gpu"``, ``"apple_mps"``,
+                ``"faiss_cpu"``).
+            **params: Extra parameters forwarded to the backend adapter.
+
+        Returns:
+            GpuIndex: An unbuilt GPU index. Call ``.build(vectors, ids)``
+            to populate it.
+
+        Examples:
+            >>> import numpy as np
+            >>> gpu = collection.gpu_index("embedding")
+            >>> gpu.build(vectors, doc_ids)
+            >>> docs = gpu.query(query_vec, topk=10)
+        """
+        from zvec.gpu_index import GpuIndex
+
+        return GpuIndex(self, field_name, backend=backend, **params)

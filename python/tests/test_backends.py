@@ -19,7 +19,7 @@ class TestHardwareDetection:
     def test_get_optimal_backend(self):
         """Test optimal backend detection."""
         backend = detect.get_optimal_backend()
-        assert backend in ["faiss_gpu", "faiss_cpu", "numpy"]
+        assert backend in ["cpp_cuvs", "cuvs", "faiss_gpu", "faiss_cpu", "numpy"]
 
     def test_is_gpu_available(self):
         """Test GPU detection."""
