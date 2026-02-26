@@ -107,7 +107,7 @@ class FaissGpuAdapter(UnifiedGpuIndex):
     """Wraps :class:`zvec.backends.gpu.GPUIndex` (FAISS GPU/CPU)."""
 
     def __init__(self, dim: int, index_type: str = "flat", **kwargs: Any) -> None:
-        from zvec.backends.gpu import GPUIndex
+        from zvec.backends.gpu import GPUIndex  # noqa: PLC0415
 
         self._index = GPUIndex(dim=dim, index_type=index_type, use_gpu=True, **kwargs)
 
@@ -142,7 +142,7 @@ class FaissCpuAdapter(UnifiedGpuIndex):
     """Wraps :class:`zvec.backends.gpu.GPUIndex` forced to CPU."""
 
     def __init__(self, dim: int, index_type: str = "flat", **kwargs: Any) -> None:
-        from zvec.backends.gpu import GPUIndex
+        from zvec.backends.gpu import GPUIndex  # noqa: PLC0415
 
         self._index = GPUIndex(dim=dim, index_type=index_type, use_gpu=False, **kwargs)
 
@@ -176,7 +176,7 @@ class CuvsCAGRAAdapter(UnifiedGpuIndex):
     """Wraps :class:`zvec.backends.cuvs_cagra.cuVSCAGRAIndex`."""
 
     def __init__(self, **kwargs: Any) -> None:
-        from zvec.backends.cuvs_cagra import cuVSCAGRAIndex
+        from zvec.backends.cuvs_cagra import cuVSCAGRAIndex  # noqa: PLC0415
 
         self._index = cuVSCAGRAIndex(**kwargs)
         self._size = 0
@@ -186,7 +186,7 @@ class CuvsCAGRAAdapter(UnifiedGpuIndex):
         self._index.train(vectors)
         self._size = vectors.shape[0]
 
-    def add(self, vectors: np.ndarray) -> None:
+    def add(self, vectors: np.ndarray) -> None:  # noqa: ARG002
         # CAGRA builds the full graph in train(); add is a no-op.
         logger.debug("CAGRA: add() is a no-op (graph built during train)")
 
@@ -210,7 +210,7 @@ class CuvsIvfPqAdapter(UnifiedGpuIndex):
     """Wraps :class:`zvec.backends.cuvs_ivf_pq.cuVSIVFPQIndex`."""
 
     def __init__(self, **kwargs: Any) -> None:
-        from zvec.backends.cuvs_ivf_pq import cuVSIVFPQIndex
+        from zvec.backends.cuvs_ivf_pq import cuVSIVFPQIndex  # noqa: PLC0415
 
         self._index = cuVSIVFPQIndex(**kwargs)
         self._size = 0
@@ -259,7 +259,7 @@ class CppCuvsAdapter(UnifiedGpuIndex):
         self._dim = 0
 
         try:
-            import _zvec
+            import _zvec  # noqa: PLC0415
 
             if self._algo == "cagra":
                 self._index = _zvec.create_cagra_float(**kwargs)
@@ -321,7 +321,7 @@ class AppleMpsAdapter(UnifiedGpuIndex):
     """Wraps :class:`zvec.backends.apple_silicon.AppleSiliconBackend`."""
 
     def __init__(self) -> None:
-        from zvec.backends.apple_silicon import AppleSiliconBackend
+        from zvec.backends.apple_silicon import AppleSiliconBackend  # noqa: PLC0415
 
         self._backend = AppleSiliconBackend(backend="auto")
         self._database: np.ndarray | None = None
@@ -368,30 +368,61 @@ def _try_create_backend(
 ) -> UnifiedGpuIndex | None:
     """Try to create a single backend by name.  Returns *None* on failure."""
     name = name.lower().replace("-", "_")
+
+    # Map name → constructor thunk (deferred so imports only run on match)
+    _CONSTRUCTORS: dict[str, Any] = {
+        "cpp_cuvs_cagra": lambda: CppCuvsAdapter(algo="cagra", **kwargs),
+        "cpp_cuvs_ivf_pq": lambda: CppCuvsAdapter(algo="ivf_pq", **kwargs),
+        "cpp_cuvs_hnsw": lambda: CppCuvsAdapter(algo="hnsw", **kwargs),
+        "cpp_cuvs": lambda: CppCuvsAdapter(
+            algo="ivf_pq" if n_vectors > 1_000_000 else "cagra", **kwargs
+        ),
+        "cuvs_cagra": lambda: CuvsCAGRAAdapter(**kwargs),
+        "cuvs_ivf_pq": lambda: CuvsIvfPqAdapter(**kwargs),
+        "faiss_gpu": lambda: FaissGpuAdapter(dim=dim, **kwargs),
+        "apple_mps": lambda: AppleMpsAdapter(),
+        "faiss_cpu": lambda: FaissCpuAdapter(dim=dim, **kwargs),
+    }
+
+    factory = _CONSTRUCTORS.get(name)
+    if factory is None:
+        return None
     try:
-        if name == "cpp_cuvs_cagra":
-            return CppCuvsAdapter(algo="cagra", **kwargs)
-        if name == "cpp_cuvs_ivf_pq":
-            return CppCuvsAdapter(algo="ivf_pq", **kwargs)
-        if name == "cpp_cuvs_hnsw":
-            return CppCuvsAdapter(algo="hnsw", **kwargs)
-        if name == "cpp_cuvs":
-            algo = "ivf_pq" if n_vectors > 1_000_000 else "cagra"
-            return CppCuvsAdapter(algo=algo, **kwargs)
-        if name == "cuvs_cagra":
-            return CuvsCAGRAAdapter(**kwargs)
-        if name == "cuvs_ivf_pq":
-            return CuvsIvfPqAdapter(**kwargs)
-        if name == "faiss_gpu":
-            return FaissGpuAdapter(dim=dim, **kwargs)
-        if name == "apple_mps":
-            return AppleMpsAdapter()
-        if name == "faiss_cpu":
-            return FaissCpuAdapter(dim=dim, **kwargs)
+        return factory()
     except Exception as exc:
         logger.warning("Backend '%s' requested but init failed: %s", name, exc)
         return None
-    return None
+
+
+def _resolve_preference(preference: str) -> str:
+    """Normalise a device / backend preference string."""
+    pref = preference.lower().replace("-", "_")
+    if pref in ("gpu", "cuda", "cuda:0"):
+        return "auto_gpu"
+    if pref == "cpu":
+        return "faiss_cpu"
+    return pref
+
+
+def _probe_availability() -> tuple[bool, bool]:
+    """Return ``(cpp_cuvs_available, py_cuvs_available)``."""
+    cpp_cuvs = False
+    try:
+        import _zvec  # noqa: PLC0415
+
+        cpp_cuvs = hasattr(_zvec, "create_cagra_float")
+    except ImportError:
+        pass
+
+    py_cuvs = False
+    try:
+        import cuvs  # noqa: PLC0415, F401
+
+        py_cuvs = True
+    except ImportError:
+        pass
+
+    return cpp_cuvs, py_cuvs
 
 
 def select_backend(
@@ -430,41 +461,17 @@ def select_backend(
     Raises:
         RuntimeError: If no backend is available.
     """
-    from zvec.backends.detect import (
+    from zvec.backends.detect import (  # noqa: PLC0415
+        APPLE_SILICON,
         FAISS_AVAILABLE,
         FAISS_GPU_AVAILABLE,
-        APPLE_SILICON,
         MPS_AVAILABLE,
     )
 
-    # Probe C++ cuVS availability (best path)
-    cpp_cuvs_available = False
-    try:
-        import _zvec
-
-        cpp_cuvs_available = hasattr(_zvec, "create_cagra_float")
-    except ImportError:
-        pass
-
-    # Probe Python cuVS availability
-    py_cuvs_available = False
-    try:
-        import cuvs  # noqa: F401
-
-        py_cuvs_available = True
-    except ImportError:
-        pass
+    cpp_cuvs_available, py_cuvs_available = _probe_availability()
+    _pref = _resolve_preference(preference)
 
     # ------- explicit preference -------
-    _pref = preference.lower().replace("-", "_")
-
-    # Map device-style strings to backend categories
-    if _pref in ("gpu", "cuda", "cuda:0"):
-        _pref = "auto_gpu"
-    elif _pref == "cpu":
-        _pref = "faiss_cpu"
-
-    # Direct backend name
     if _pref not in ("auto", "auto_gpu"):
         result = _try_create_backend(_pref, dim, n_vectors, **kwargs)
         if result is not None:
@@ -474,23 +481,53 @@ def select_backend(
         )
 
     # ------- env-var priority override -------
-    env_priority = os.environ.get(_ENV_PRIORITY_KEY, "").strip()
-    if env_priority:
-        backends = [b.strip() for b in env_priority.split(",") if b.strip()]
-        logger.info("Using custom backend priority from %s: %s", _ENV_PRIORITY_KEY, backends)
-        for name in backends:
-            result = _try_create_backend(name, dim, n_vectors, **kwargs)
-            if result is not None:
-                logger.info("Selected backend '%s' from env priority", name)
-                return result
-        logger.warning("No backend from %s succeeded, trying defaults", _ENV_PRIORITY_KEY)
+    result = _try_env_priority(dim, n_vectors, **kwargs)
+    if result is not None:
+        return result
 
     # ------- auto selection -------
-    # If auto_gpu, skip CPU-only backends
-    gpu_only = _pref == "auto_gpu"
+    return _auto_select(
+        dim, n_vectors, _pref == "auto_gpu",
+        cpp_cuvs_available, py_cuvs_available,
+        FAISS_GPU_AVAILABLE, APPLE_SILICON and MPS_AVAILABLE, FAISS_AVAILABLE,
+        **kwargs,
+    )
 
+
+def _try_env_priority(
+    dim: int, n_vectors: int, **kwargs: Any,
+) -> UnifiedGpuIndex | None:
+    """Try backends listed in ``ZVEC_GPU_BACKEND_PRIORITY``."""
+    env_priority = os.environ.get(_ENV_PRIORITY_KEY, "").strip()
+    if not env_priority:
+        return None
+    backends = [b.strip() for b in env_priority.split(",") if b.strip()]
+    logger.info(
+        "Using custom backend priority from %s: %s", _ENV_PRIORITY_KEY, backends,
+    )
+    for name in backends:
+        result = _try_create_backend(name, dim, n_vectors, **kwargs)
+        if result is not None:
+            logger.info("Selected backend '%s' from env priority", name)
+            return result
+    logger.warning("No backend from %s succeeded, trying defaults", _ENV_PRIORITY_KEY)
+    return None
+
+
+def _auto_select(
+    dim: int,
+    n_vectors: int,
+    gpu_only: bool,
+    cpp_cuvs: bool,
+    py_cuvs: bool,
+    faiss_gpu: bool,
+    apple_mps: bool,
+    faiss_cpu: bool,
+    **kwargs: Any,
+) -> UnifiedGpuIndex:
+    """Run the default backend priority chain."""
     # 1. C++ native cuVS — zero-copy, fastest
-    if cpp_cuvs_available:
+    if cpp_cuvs:
         algo = "ivf_pq" if n_vectors > 1_000_000 else "cagra"
         logger.info("Auto-selected C++ cuVS %s (n=%d)", algo.upper(), n_vectors)
         try:
@@ -499,7 +536,7 @@ def select_backend(
             logger.warning("C++ cuVS %s init failed, trying Python fallback", algo)
 
     # 2. Python cuVS
-    if py_cuvs_available:
+    if py_cuvs:
         if n_vectors > 1_000_000:
             logger.info("Auto-selected Python cuVS IVF-PQ (n=%d)", n_vectors)
             return CuvsIvfPqAdapter(**kwargs)
@@ -507,12 +544,12 @@ def select_backend(
         return CuvsCAGRAAdapter(**kwargs)
 
     # 3. FAISS GPU
-    if FAISS_GPU_AVAILABLE:
+    if faiss_gpu:
         logger.info("Auto-selected FAISS GPU")
         return FaissGpuAdapter(dim=dim, **kwargs)
 
     # 4. Apple MPS
-    if APPLE_SILICON and MPS_AVAILABLE:
+    if apple_mps:
         logger.info("Auto-selected Apple MPS")
         return AppleMpsAdapter()
 
@@ -523,7 +560,7 @@ def select_backend(
         )
 
     # 5. FAISS CPU (fallback)
-    if FAISS_AVAILABLE:
+    if faiss_cpu:
         logger.info("Auto-selected FAISS CPU (fallback)")
         return FaissCpuAdapter(dim=dim, **kwargs)
 

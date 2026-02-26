@@ -437,7 +437,7 @@ class Collection:
             >>> gpu = collection.index("embedding", device="cuda:0")
             >>> gpu.build_from_collection(batch_size=10_000)
         """
-        from zvec.gpu_index import GpuIndex
+        from zvec.gpu_index import GpuIndex  # noqa: PLC0415
 
         return GpuIndex(
             self,
@@ -481,7 +481,7 @@ class Collection:
             >>> gpu.build(vectors, doc_ids)
             >>> docs = gpu.query(query_vec, topk=10)
         """
-        import warnings
+        import warnings  # noqa: PLC0415
 
         warnings.warn(
             "Collection.gpu_index() is deprecated. "
@@ -489,6 +489,6 @@ class Collection:
             DeprecationWarning,
             stacklevel=2,
         )
-        from zvec.gpu_index import GpuIndex
+        from zvec.gpu_index import GpuIndex  # noqa: PLC0415
 
         return GpuIndex(self, field_name, backend=backend, **params)

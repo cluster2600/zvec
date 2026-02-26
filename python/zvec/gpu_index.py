@@ -132,7 +132,7 @@ class GpuIndex:
             self._backend_pref = backend
 
         # GPU/CPU threshold for hybrid auto-selection
-        import os
+        import os  # noqa: PLC0415
 
         if gpu_threshold is not None:
             self._gpu_threshold = gpu_threshold
@@ -262,25 +262,19 @@ class GpuIndex:
                         vec = doc.vectors[self._field_name]
                         all_vectors.append(np.asarray(vec, dtype=np.float32))
                         all_ids.append(doc_id)
+        elif hasattr(self._collection, "fetch_all"):
+            fetched = self._collection.fetch_all()
+            for doc_id, doc in fetched.items():
+                if doc.vectors and self._field_name in doc.vectors:
+                    vec = doc.vectors[self._field_name]
+                    all_vectors.append(np.asarray(vec, dtype=np.float32))
+                    all_ids.append(doc_id)
         else:
-            # Use collection stats to estimate size, then query in batches
-            # via a dummy vector search with large topk, or iterate
-            # available IDs.  Since _Collection has no scan API, we use
-            # fetch_all when available, otherwise fall back to the caller
-            # providing doc_ids explicitly.
-            if hasattr(self._collection, "fetch_all"):
-                fetched = self._collection.fetch_all()
-                for doc_id, doc in fetched.items():
-                    if doc.vectors and self._field_name in doc.vectors:
-                        vec = doc.vectors[self._field_name]
-                        all_vectors.append(np.asarray(vec, dtype=np.float32))
-                        all_ids.append(doc_id)
-            else:
-                raise ValueError(
-                    "build_from_collection() without doc_ids requires either "
-                    "a Collection with fetch_all() or explicit doc_ids. "
-                    "Pass doc_ids=[...] to specify which documents to index."
-                )
+            raise ValueError(
+                "build_from_collection() without doc_ids requires either "
+                "a Collection with fetch_all() or explicit doc_ids. "
+                "Pass doc_ids=[...] to specify which documents to index."
+            )
 
         if not all_vectors:
             raise ValueError(
@@ -327,7 +321,7 @@ class GpuIndex:
 
         # Map flat indices → doc IDs
         results: list[tuple[str, float]] = []
-        for dist, idx in zip(distances[0], indices[0]):
+        for dist, idx in zip(distances[0], indices[0], strict=True):
             idx_int = int(idx)
             if 0 <= idx_int < len(self._ids):
                 results.append((str(self._ids[idx_int]), float(dist)))
@@ -360,7 +354,7 @@ class GpuIndex:
         Returns:
             ``list[Doc]`` sorted by relevance (best first).
         """
-        from zvec.model.doc import Doc
+        from zvec.model.doc import Doc  # noqa: PLC0415
 
         self._ensure_built()
 
@@ -370,7 +364,7 @@ class GpuIndex:
             return []
 
         doc_ids = [doc_id for doc_id, _ in hits]
-        score_map = {doc_id: dist for doc_id, dist in hits}
+        score_map = dict(hits)
 
         # 2. Fetch full documents from collection
         fetched = self._collection.fetch(doc_ids)
