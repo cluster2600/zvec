@@ -48,12 +48,21 @@ Notes
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
+from pathlib import Path
 from typing import Optional
 
+from zvec import (
+    CollectionSchema,
+    DataType,
+    Doc,
+    HnswIndexParam,
+    MetricType,
+    VectorQuery,
+    VectorSchema,
+    create_and_open,
+)
 from zvec.extension import HTTPDenseEmbedding
-
 
 # ---------------------------------------------------------------------------
 # Demo
@@ -96,33 +105,21 @@ def run_demo(
     api_key: Optional[str],
     collection_path: str,
 ) -> None:
-    import zvec
-    from zvec import (
-        CollectionSchema,
-        DataType,
-        Doc,
-        HnswIndexParam,
-        MetricType,
-        VectorQuery,
-        VectorSchema,
-        create_and_open,
-    )
-
     # ------------------------------------------------------------------ #
     # 1.  Embedding function                                               #
     # ------------------------------------------------------------------ #
-    print(f"[1/4] Connecting to embedding server at {base_url} …")
+    print(f"[1/4] Connecting to embedding server at {base_url} …")  # noqa: T201
     emb = HTTPDenseEmbedding(base_url=base_url, model=model, api_key=api_key)
 
     # Probe dimension
     dim = emb.dimension
-    print(f"      Model: {model!r}  |  Dimension: {dim}")
+    print(f"      Model: {model!r}  |  Dimension: {dim}")  # noqa: T201
 
     # ------------------------------------------------------------------ #
     # 2.  Create collection with HNSW + cosine                            #
     # ------------------------------------------------------------------ #
-    print("[2/4] Creating zvec collection (HNSW / cosine) …")
-    if os.path.exists(collection_path):
+    print("[2/4] Creating zvec collection (HNSW / cosine) …")  # noqa: T201
+    if Path(collection_path).exists():
         shutil.rmtree(collection_path)
 
     schema = CollectionSchema(
@@ -143,7 +140,7 @@ def run_demo(
     # ------------------------------------------------------------------ #
     # 3.  Insert documents                                                 #
     # ------------------------------------------------------------------ #
-    print(f"[3/4] Embedding and inserting {len(SAMPLE_DOCUMENTS)} documents …")
+    print(f"[3/4] Embedding and inserting {len(SAMPLE_DOCUMENTS)} documents …")  # noqa: T201
     docs = []
     for item in SAMPLE_DOCUMENTS:
         vector = emb.embed(item["text"])
@@ -159,12 +156,12 @@ def run_demo(
 
     collection.insert(docs)
     collection.flush()
-    print(f"      Inserted {collection.stats.total_doc_count} documents.")
+    print(f"      Inserted {collection.stats.total_doc_count} documents.")  # noqa: T201
 
     # ------------------------------------------------------------------ #
     # 4.  Search                                                           #
     # ------------------------------------------------------------------ #
-    print(f"[4/4] Searching for: {QUERY!r}\n")
+    print(f"[4/4] Searching for: {QUERY!r}\n")  # noqa: T201
     query_vector = emb.embed(QUERY)
 
     results = collection.query(
@@ -172,23 +169,23 @@ def run_demo(
         topk=3,
     )
 
-    print("Top-3 results:")
-    print("-" * 60)
+    print("Top-3 results:")  # noqa: T201
+    print("-" * 60)  # noqa: T201
     for rank, result in enumerate(results, start=1):
         # Retrieve stored fields if available
         doc_id = result.id
         score = result.score
         # Find original text for display
         original = next((d for d in SAMPLE_DOCUMENTS if d["id"] == doc_id), {})
-        print(f"  #{rank}  id={doc_id}  score={score:.4f}")
-        print(f"       {original.get('text', '(text not stored)')}")
-    print("-" * 60)
+        print(f"  #{rank}  id={doc_id}  score={score:.4f}")  # noqa: T201
+        print(f"       {original.get('text', '(text not stored)')}")  # noqa: T201
+    print("-" * 60)  # noqa: T201
 
     # ------------------------------------------------------------------ #
     # Cleanup                                                              #
     # ------------------------------------------------------------------ #
     collection.destroy()
-    print("\nCollection destroyed.  Done!")
+    print("\nCollection destroyed.  Done!")  # noqa: T201
 
 
 # ---------------------------------------------------------------------------
