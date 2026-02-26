@@ -48,131 +48,11 @@ Notes
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
-import urllib.request
-from functools import lru_cache
-from typing import List, Optional
+from typing import Optional
 
-
-# ---------------------------------------------------------------------------
-# HTTPEmbeddingFunction
-# ---------------------------------------------------------------------------
-
-class HTTPEmbeddingFunction:
-    """Dense embedding function that calls an OpenAI-compatible /v1/embeddings
-    endpoint.
-
-    This class satisfies the :class:`zvec.DenseEmbeddingFunction` protocol and
-    can therefore be used anywhere zvec accepts a custom embedding function.
-
-    Parameters
-    ----------
-    base_url:
-        Base URL of the OpenAI-compatible inference server.
-        Examples:
-        - ``http://localhost:1234``   (LM Studio default)
-        - ``http://localhost:11434``  (Ollama default)
-    model:
-        Name / identifier of the embedding model as expected by the server.
-    api_key:
-        Optional API key sent as ``Authorization: Bearer <key>``.
-        Leave as ``None`` for servers that do not require authentication.
-    timeout:
-        HTTP request timeout in seconds (default: 30).
-    """
-
-    ENDPOINT = "/v1/embeddings"
-
-    def __init__(
-        self,
-        base_url: str = "http://localhost:1234",
-        model: str = "text-embedding-nomic-embed-text-v1.5@f16",
-        api_key: Optional[str] = None,
-        timeout: int = 30,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        self.timeout = timeout
-
-        # Detect dimension on first use (lazy)
-        self._dimension: Optional[int] = None
-
-    # ------------------------------------------------------------------
-    # DenseEmbeddingFunction protocol
-    # ------------------------------------------------------------------
-
-    @property
-    def dimension(self) -> int:
-        """Return the embedding dimension (detected lazily)."""
-        if self._dimension is None:
-            # Trigger a probe call to learn the dimension
-            self._dimension = len(self.embed("dimension probe"))
-        return self._dimension
-
-    def __call__(self, text: str) -> List[float]:
-        return self.embed(text)
-
-    @lru_cache(maxsize=256)
-    def embed(self, text: str) -> List[float]:
-        """Embed *text* and return a ``list[float]``.
-
-        Results are cached (LRU, up to 256 entries) to avoid redundant
-        network calls when the same string is encountered more than once.
-
-        Parameters
-        ----------
-        text:
-            The input string to embed.  Must be non-empty.
-
-        Returns
-        -------
-        list[float]
-            The dense embedding vector produced by the server.
-
-        Raises
-        ------
-        ValueError
-            If *text* is empty or the server returns an unexpected response.
-        RuntimeError
-            If the HTTP request fails.
-        """
-        if not isinstance(text, str):
-            raise TypeError(f"Expected str, got {type(text).__name__}")
-        text = text.strip()
-        if not text:
-            raise ValueError("Input text must not be empty or whitespace only.")
-
-        url = self.base_url + self.ENDPOINT
-        payload = json.dumps({"model": self.model, "input": text}).encode()
-
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-
-        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                body = json.loads(resp.read())
-        except urllib.error.HTTPError as exc:
-            raise RuntimeError(
-                f"Embedding server returned HTTP {exc.code}: {exc.read().decode()}"
-            ) from exc
-        except OSError as exc:
-            raise RuntimeError(
-                f"Could not reach embedding server at {url}: {exc}"
-            ) from exc
-
-        try:
-            vector: List[float] = body["data"][0]["embedding"]
-        except (KeyError, IndexError) as exc:
-            raise ValueError(
-                f"Unexpected response format from embedding server: {body}"
-            ) from exc
-
-        return vector
+from zvec.extension import HTTPDenseEmbedding
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +112,7 @@ def run_demo(
     # 1.  Embedding function                                               #
     # ------------------------------------------------------------------ #
     print(f"[1/4] Connecting to embedding server at {base_url} …")
-    emb = HTTPEmbeddingFunction(base_url=base_url, model=model, api_key=api_key)
+    emb = HTTPDenseEmbedding(base_url=base_url, model=model, api_key=api_key)
 
     # Probe dimension
     dim = emb.dimension
