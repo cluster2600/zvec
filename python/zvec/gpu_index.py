@@ -45,10 +45,15 @@ Usage
     col = zvec.open("my_collection")
 
     # Create a GPU index bound to the "embedding" vector field
-    gpu = col.gpu_index("embedding")
+    gpu = col.index("embedding", device="gpu")        # PyTorch-style device
+    gpu = col.index("embedding", device="cuda:0")     # explicit CUDA device
+    gpu = col.index("embedding", backend="cuvs_cagra") # explicit backend
 
     # Build from vectors + doc IDs
     gpu.build(vectors, ids)
+
+    # Or build directly from the collection (streams in batches)
+    gpu.build_from_collection(batch_size=10000)
 
     # Search — returns (doc_id, distance) pairs
     results = gpu.search(query_vector, k=10)
@@ -75,14 +80,20 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["GpuIndex"]
 
+# Default threshold: below this number of vectors, the CPU path is used
+# when device="auto" to avoid GPU transfer overhead.  Can be overridden
+# via the ZVEC_GPU_AUTO_THRESHOLD environment variable.
+_DEFAULT_GPU_THRESHOLD = 50_000
+
 
 class GpuIndex:
     """GPU-accelerated index bound to a :class:`Collection` vector field.
 
     Bridges the gap between zvec's standalone GPU backends and the
-    Collection query workflow.  After calling :meth:`build`, the index
-    can be queried with :meth:`search` (raw results) or :meth:`query`
-    (returns full ``Doc`` objects, same format as ``Collection.query``).
+    Collection query workflow.  After calling :meth:`build` or
+    :meth:`build_from_collection`, the index can be queried with
+    :meth:`search` (raw results) or :meth:`query` (returns full ``Doc``
+    objects, same format as ``Collection.query``).
 
     Args:
         collection: The zvec Collection this index is associated with.
@@ -90,6 +101,13 @@ class GpuIndex:
         backend: Backend preference — ``"auto"`` (default) lets the factory
             pick the fastest available backend (C++ cuVS first).
             See :func:`~zvec.backends.unified.select_backend` for options.
+        device: Device string (PyTorch-style). When set, overrides *backend*.
+            ``"gpu"`` — any GPU, ``"cuda:0"`` — specific CUDA device,
+            ``"cpu"`` — force CPU.  Default ``None`` (use *backend*).
+        gpu_threshold: Number of vectors below which the auto-selector
+            prefers CPU over GPU.  Only effective when *backend* and
+            *device* are both ``"auto"`` / ``None``.
+            Default 50 000.  Set to 0 to always use GPU.
         **params: Extra parameters forwarded to the backend adapter.
     """
 
@@ -98,12 +116,30 @@ class GpuIndex:
         collection: Collection,
         field_name: str,
         backend: str = "auto",
+        *,
+        device: str | None = None,
+        gpu_threshold: int | None = None,
         **params: Any,
     ) -> None:
         self._collection = collection
         self._field_name = field_name
-        self._backend_pref = backend
         self._params = params
+
+        # Resolve device / backend preference
+        if device is not None:
+            self._backend_pref = device  # device takes precedence
+        else:
+            self._backend_pref = backend
+
+        # GPU/CPU threshold for hybrid auto-selection
+        import os
+
+        if gpu_threshold is not None:
+            self._gpu_threshold = gpu_threshold
+        else:
+            self._gpu_threshold = int(
+                os.environ.get("ZVEC_GPU_AUTO_THRESHOLD", str(_DEFAULT_GPU_THRESHOLD))
+            )
 
         self._backend: UnifiedGpuIndex | None = None
         self._ids: np.ndarray | None = None  # doc-ID array parallel to index
@@ -154,12 +190,22 @@ class GpuIndex:
                 f"Number of IDs ({ids_arr.shape[0]}) != number of vectors ({n})"
             )
 
+        # Hybrid auto-selection: use CPU for small collections
+        pref = self._backend_pref
+        if pref == "auto" and n < self._gpu_threshold:
+            logger.info(
+                "n=%d < gpu_threshold=%d, using CPU for better latency",
+                n,
+                self._gpu_threshold,
+            )
+            pref = "cpu"
+
         # Create backend (lazy — so we know dim and n_vectors)
         t0 = time.perf_counter()
         self._backend = select_backend(
             dim=dim,
             n_vectors=n,
-            preference=self._backend_pref,
+            preference=pref,
             **self._params,
         )
 
@@ -177,6 +223,80 @@ class GpuIndex:
             elapsed * 1000,
         )
         return self
+
+    def build_from_collection(
+        self,
+        *,
+        batch_size: int = 10_000,
+        doc_ids: list[str] | None = None,
+    ) -> GpuIndex:
+        """Build the index by streaming vectors from the collection.
+
+        This is a convenience method that internally fetches vectors in
+        batches, avoiding the need to manually extract and pass arrays.
+        The collection must already contain documents with the vector
+        field populated.
+
+        Args:
+            batch_size: Number of documents to fetch per batch.  Larger
+                values use more memory but are faster.
+            doc_ids: Explicit list of document IDs to index.  When
+                ``None`` (default), all documents in the collection are
+                indexed.
+
+        Returns:
+            *self* for chaining.
+        """
+        t0 = time.perf_counter()
+
+        all_vectors: list[np.ndarray] = []
+        all_ids: list[str] = []
+
+        if doc_ids is not None:
+            # Fetch specific documents in batches
+            for start in range(0, len(doc_ids), batch_size):
+                batch_ids = doc_ids[start : start + batch_size]
+                fetched = self._collection.fetch(batch_ids)
+                for doc_id, doc in fetched.items():
+                    if doc.vectors and self._field_name in doc.vectors:
+                        vec = doc.vectors[self._field_name]
+                        all_vectors.append(np.asarray(vec, dtype=np.float32))
+                        all_ids.append(doc_id)
+        else:
+            # Use collection stats to estimate size, then query in batches
+            # via a dummy vector search with large topk, or iterate
+            # available IDs.  Since _Collection has no scan API, we use
+            # fetch_all when available, otherwise fall back to the caller
+            # providing doc_ids explicitly.
+            if hasattr(self._collection, "fetch_all"):
+                fetched = self._collection.fetch_all()
+                for doc_id, doc in fetched.items():
+                    if doc.vectors and self._field_name in doc.vectors:
+                        vec = doc.vectors[self._field_name]
+                        all_vectors.append(np.asarray(vec, dtype=np.float32))
+                        all_ids.append(doc_id)
+            else:
+                raise ValueError(
+                    "build_from_collection() without doc_ids requires either "
+                    "a Collection with fetch_all() or explicit doc_ids. "
+                    "Pass doc_ids=[...] to specify which documents to index."
+                )
+
+        if not all_vectors:
+            raise ValueError(
+                f"No vectors found for field '{self._field_name}' in collection"
+            )
+
+        vectors = np.stack(all_vectors)
+        elapsed_fetch = time.perf_counter() - t0
+        logger.info(
+            "Fetched %d vectors in %.1f ms (batch_size=%d)",
+            len(all_ids),
+            elapsed_fetch * 1000,
+            batch_size,
+        )
+
+        return self.build(vectors, all_ids)
 
     # ------------------------------------------------------------------
     # Search (raw)
@@ -296,6 +416,7 @@ class GpuIndex:
             "built": self._built,
             "n_vectors": self._backend.size() if self._backend else 0,
             "backend": self._backend.backend_name if self._backend else None,
+            "gpu_threshold": self._gpu_threshold,
         }
 
     @property
@@ -318,5 +439,6 @@ class GpuIndex:
     def _ensure_built(self) -> None:
         if not self._built or self._backend is None or self._ids is None:
             raise RuntimeError(
-                "GpuIndex not built. Call .build(vectors, ids) first."
+                "GpuIndex not built. Call .build(vectors, ids) or "
+                ".build_from_collection() first."
             )

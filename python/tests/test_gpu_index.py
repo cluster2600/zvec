@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -38,6 +39,68 @@ class TestSelectBackend:
         # "bogus" is not a recognised preference → auto
         backend = select_backend(dim=64, preference="bogus")
         assert backend is not None
+
+    def test_select_device_cpu(self):
+        """device='cpu' maps to FAISS CPU."""
+        from zvec.backends.unified import select_backend
+
+        backend = select_backend(dim=64, preference="cpu")
+        assert "FAISS CPU" in backend.backend_name
+
+    def test_select_device_gpu_without_gpu(self):
+        """device='gpu' without GPU hardware raises RuntimeError."""
+        from zvec.backends.unified import select_backend
+
+        # Patch all GPU detection to False
+        with patch("zvec.backends.detect.FAISS_GPU_AVAILABLE", False), \
+             patch("zvec.backends.detect.MPS_AVAILABLE", False), \
+             patch("zvec.backends.detect.APPLE_SILICON", False):
+            # Also patch cuVS imports to fail
+            with patch.dict("sys.modules", {"_zvec": None, "cuvs": None}):
+                with pytest.raises(RuntimeError, match="no GPU backend"):
+                    select_backend(dim=64, preference="gpu")
+
+    def test_env_var_priority(self):
+        """ZVEC_GPU_BACKEND_PRIORITY env var overrides auto-selection."""
+        from zvec.backends.unified import select_backend, _ENV_PRIORITY_KEY
+
+        # Force a specific priority via env var
+        with patch.dict(os.environ, {_ENV_PRIORITY_KEY: "faiss_cpu"}):
+            backend = select_backend(dim=64, n_vectors=100)
+            assert "FAISS CPU" in backend.backend_name
+
+    def test_env_var_priority_multiple(self):
+        """Multiple backends in env var, first available wins."""
+        from zvec.backends.unified import select_backend, _ENV_PRIORITY_KEY
+
+        # bogus_backend will fail, faiss_cpu should succeed
+        with patch.dict(os.environ, {_ENV_PRIORITY_KEY: "bogus_backend,faiss_cpu"}):
+            backend = select_backend(dim=64, n_vectors=100)
+            assert "FAISS CPU" in backend.backend_name
+
+    def test_env_var_priority_all_fail_fallback(self):
+        """If all env var backends fail, fall through to default auto-selection."""
+        from zvec.backends.unified import select_backend, _ENV_PRIORITY_KEY
+
+        with patch.dict(os.environ, {_ENV_PRIORITY_KEY: "bogus_one,bogus_two"}):
+            backend = select_backend(dim=64, n_vectors=100)
+            # Should still get a working backend via default chain
+            assert backend is not None
+
+    def test_try_create_backend_normalizes_name(self):
+        """_try_create_backend normalizes dashes to underscores."""
+        from zvec.backends.unified import _try_create_backend
+
+        backend = _try_create_backend("faiss-cpu", dim=64, n_vectors=100)
+        assert backend is not None
+        assert "FAISS CPU" in backend.backend_name
+
+    def test_try_create_backend_unknown(self):
+        """_try_create_backend returns None for unknown backends."""
+        from zvec.backends.unified import _try_create_backend
+
+        result = _try_create_backend("nonexistent", dim=64, n_vectors=100)
+        assert result is None
 
 
 class TestFaissCpuAdapter:
@@ -115,7 +178,7 @@ class TestAppleMpsAdapter:
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_collection(dim: int = 64):
+def _make_mock_collection(dim: int = 64, has_fetch_all: bool = False):
     """Create a mock Collection with a vector schema."""
     from zvec.model.doc import Doc
 
@@ -132,11 +195,26 @@ def _make_mock_collection(dim: int = 64):
             doc_id: Doc(
                 id=doc_id,
                 fields={"title": f"Document {doc_id}"},
+                vectors={"embedding": list(np.random.random(dim).astype(float))},
             )
             for doc_id in ids
         }
 
     col.fetch.side_effect = _fake_fetch
+
+    # Optionally add fetch_all for build_from_collection tests
+    if has_fetch_all:
+        np.random.seed(123)
+        all_docs = {}
+        for i in range(50):
+            doc_id = f"doc_{i}"
+            all_docs[doc_id] = Doc(
+                id=doc_id,
+                fields={"title": f"Document {doc_id}"},
+                vectors={"embedding": list(np.random.random(dim).astype(float))},
+            )
+        col.fetch_all.return_value = all_docs
+
     return col
 
 
@@ -277,18 +355,293 @@ class TestGpuIndex:
 
 
 # ---------------------------------------------------------------------------
-# Collection.gpu_index integration
+# GpuIndex device= parameter
 # ---------------------------------------------------------------------------
 
 
-class TestCollectionGpuIndex:
-    """Test the Collection.gpu_index() convenience method."""
+class TestGpuIndexDevice:
+    """Tests for the device= parameter (PyTorch-style API)."""
+
+    def test_device_cpu(self):
+        """device='cpu' should use CPU backend."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", device="cpu")
+
+        vectors = np.random.random((50, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(50)]
+        gpu.build(vectors, ids)
+
+        assert gpu.is_built
+        assert "CPU" in gpu.info["backend"]
+
+    def test_device_overrides_backend(self):
+        """device= should take precedence over backend=."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        # device="cpu" should win over backend="faiss_gpu"
+        gpu = GpuIndex(col, "embedding", backend="faiss_gpu", device="cpu")
+
+        vectors = np.random.random((50, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(50)]
+        gpu.build(vectors, ids)
+
+        assert "CPU" in gpu.info["backend"]
+
+    def test_device_none_uses_backend(self):
+        """device=None should defer to backend parameter."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu", device=None)
+
+        vectors = np.random.random((50, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(50)]
+        gpu.build(vectors, ids)
+
+        assert "FAISS CPU" in gpu.info["backend"]
+
+
+# ---------------------------------------------------------------------------
+# GpuIndex hybrid CPU/GPU auto-selector (gpu_threshold)
+# ---------------------------------------------------------------------------
+
+
+class TestGpuThreshold:
+    """Tests for hybrid CPU/GPU auto-selection via gpu_threshold."""
+
+    def test_small_collection_uses_cpu(self):
+        """Collections below threshold should use CPU in auto mode."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        # Set threshold higher than our vector count
+        gpu = GpuIndex(col, "embedding", backend="auto", gpu_threshold=1000)
+
+        vectors = np.random.random((100, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(100)]
+        gpu.build(vectors, ids)
+
+        # Should fall through to CPU since 100 < 1000
+        assert "CPU" in gpu.info["backend"]
+
+    def test_large_collection_allows_gpu(self):
+        """Collections above threshold should not be forced to CPU."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        # Set threshold lower than our vector count
+        gpu = GpuIndex(col, "embedding", backend="auto", gpu_threshold=10)
+
+        vectors = np.random.random((100, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(100)]
+        gpu.build(vectors, ids)
+
+        # Should use whatever auto-selects (likely CPU on test machine,
+        # but won't be forced to CPU by threshold logic)
+        assert gpu.is_built
+
+    def test_threshold_zero_always_auto(self):
+        """gpu_threshold=0 should never force CPU."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", backend="auto", gpu_threshold=0)
+
+        vectors = np.random.random((10, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(10)]
+        gpu.build(vectors, ids)
+
+        # With threshold=0, even small collections go through auto
+        assert gpu.is_built
+
+    def test_env_threshold_override(self):
+        """ZVEC_GPU_AUTO_THRESHOLD env var overrides default."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        with patch.dict(os.environ, {"ZVEC_GPU_AUTO_THRESHOLD": "500"}):
+            gpu = GpuIndex(col, "embedding", backend="auto")
+            assert gpu._gpu_threshold == 500
+
+    def test_explicit_threshold_overrides_env(self):
+        """Explicit gpu_threshold parameter takes precedence over env var."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        with patch.dict(os.environ, {"ZVEC_GPU_AUTO_THRESHOLD": "500"}):
+            gpu = GpuIndex(col, "embedding", backend="auto", gpu_threshold=100)
+            assert gpu._gpu_threshold == 100
+
+    def test_threshold_only_applies_to_auto(self):
+        """Explicit backend should not be affected by threshold."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 32
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu", gpu_threshold=1_000_000)
+
+        vectors = np.random.random((10, dim)).astype(np.float32)
+        ids = [f"d{i}" for i in range(10)]
+        gpu.build(vectors, ids)
+
+        assert "FAISS CPU" in gpu.info["backend"]
+
+
+# ---------------------------------------------------------------------------
+# GpuIndex.build_from_collection
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFromCollection:
+    """Tests for the build_from_collection() method."""
+
+    def test_build_from_fetch_all(self):
+        """build_from_collection() with fetch_all support."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim, has_fetch_all=True)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+        gpu.build_from_collection()
+
+        assert gpu.is_built
+        assert gpu.info["n_vectors"] == 50  # _make_mock_collection creates 50 docs
+
+    def test_build_from_explicit_doc_ids(self):
+        """build_from_collection(doc_ids=...) fetches specific docs."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+
+        doc_ids = [f"doc_{i}" for i in range(20)]
+        gpu.build_from_collection(doc_ids=doc_ids)
+
+        assert gpu.is_built
+        assert gpu.info["n_vectors"] == 20
+
+    def test_build_from_collection_with_batch_size(self):
+        """build_from_collection with small batch_size fetches in batches."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+
+        doc_ids = [f"doc_{i}" for i in range(25)]
+        gpu.build_from_collection(doc_ids=doc_ids, batch_size=10)
+
+        assert gpu.is_built
+        assert gpu.info["n_vectors"] == 25
+        # fetch should have been called ceil(25/10) = 3 times
+        assert col.fetch.call_count == 3
+
+    def test_build_from_collection_no_fetch_all_no_ids_raises(self):
+        """build_from_collection() without fetch_all or doc_ids should raise."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim, has_fetch_all=False)
+        # Remove fetch_all attribute to simulate missing API
+        del col.fetch_all
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+
+        with pytest.raises(ValueError, match="fetch_all"):
+            gpu.build_from_collection()
+
+    def test_build_from_collection_empty_raises(self):
+        """build_from_collection() with no vectors found should raise."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim)
+        # Make fetch return docs without vectors
+        from zvec.model.doc import Doc
+
+        col.fetch.side_effect = lambda ids: {
+            doc_id: Doc(id=doc_id, fields={"title": "empty"}, vectors={})
+            for doc_id in ids
+        }
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+
+        with pytest.raises(ValueError, match="No vectors found"):
+            gpu.build_from_collection(doc_ids=["doc_0", "doc_1"])
+
+    def test_build_from_collection_chains(self):
+        """build_from_collection() returns self for chaining."""
+        from zvec.gpu_index import GpuIndex
+
+        dim = 64
+        col = _make_mock_collection(dim=dim, has_fetch_all=True)
+
+        gpu = GpuIndex(col, "embedding", backend="faiss_cpu")
+        result = gpu.build_from_collection()
+
+        assert result is gpu
+
+
+# ---------------------------------------------------------------------------
+# Collection.index() and Collection.gpu_index()
+# ---------------------------------------------------------------------------
+
+
+class TestCollectionIndex:
+    """Test the Collection.index() and Collection.gpu_index() methods."""
+
+    def test_index_method_exists(self):
+        """Collection should have index method."""
+        from zvec.model.collection import Collection
+
+        assert hasattr(Collection, "index")
 
     def test_gpu_index_method_exists(self):
-        """Collection should have gpu_index method."""
+        """Collection should still have gpu_index method (backward compat)."""
         from zvec.model.collection import Collection
 
         assert hasattr(Collection, "gpu_index")
+
+    def test_gpu_index_deprecation_warning(self):
+        """Collection.gpu_index() should emit DeprecationWarning."""
+        import warnings
+        from zvec.model.collection import Collection
+
+        col = _make_mock_collection(dim=64)
+
+        # Call the unbound method directly on the mock, simulating
+        # col.gpu_index("embedding", backend="faiss_cpu")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Collection.gpu_index(col, "embedding", "faiss_cpu")
+
+        deprecations = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        assert len(deprecations) >= 1
+        assert "deprecated" in str(deprecations[0].message).lower()
 
 
 # ---------------------------------------------------------------------------

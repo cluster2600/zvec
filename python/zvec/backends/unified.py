@@ -33,12 +33,19 @@ infrastructure.
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# Configurable backend priority via environment variable.
+# Comma-separated list of backend names.  When set, overrides the default
+# priority chain for auto-selection.
+# Example: ZVEC_GPU_BACKEND_PRIORITY=faiss_gpu,cuvs_cagra,cuvs_ivf_pq,faiss_cpu
+_ENV_PRIORITY_KEY = "ZVEC_GPU_BACKEND_PRIORITY"
 
 
 class UnifiedGpuIndex(ABC):
@@ -353,6 +360,40 @@ class AppleMpsAdapter(UnifiedGpuIndex):
 # ---------------------------------------------------------------------------
 
 
+def _try_create_backend(
+    name: str,
+    dim: int,
+    n_vectors: int,
+    **kwargs: Any,
+) -> UnifiedGpuIndex | None:
+    """Try to create a single backend by name.  Returns *None* on failure."""
+    name = name.lower().replace("-", "_")
+    try:
+        if name == "cpp_cuvs_cagra":
+            return CppCuvsAdapter(algo="cagra", **kwargs)
+        if name == "cpp_cuvs_ivf_pq":
+            return CppCuvsAdapter(algo="ivf_pq", **kwargs)
+        if name == "cpp_cuvs_hnsw":
+            return CppCuvsAdapter(algo="hnsw", **kwargs)
+        if name == "cpp_cuvs":
+            algo = "ivf_pq" if n_vectors > 1_000_000 else "cagra"
+            return CppCuvsAdapter(algo=algo, **kwargs)
+        if name == "cuvs_cagra":
+            return CuvsCAGRAAdapter(**kwargs)
+        if name == "cuvs_ivf_pq":
+            return CuvsIvfPqAdapter(**kwargs)
+        if name == "faiss_gpu":
+            return FaissGpuAdapter(dim=dim, **kwargs)
+        if name == "apple_mps":
+            return AppleMpsAdapter()
+        if name == "faiss_cpu":
+            return FaissCpuAdapter(dim=dim, **kwargs)
+    except Exception as exc:
+        logger.warning("Backend '%s' requested but init failed: %s", name, exc)
+        return None
+    return None
+
+
 def select_backend(
     dim: int,
     n_vectors: int = 0,
@@ -370,13 +411,17 @@ def select_backend(
     5. Apple MPS   (Apple Silicon)
     6. FAISS CPU   (fallback)
 
-    The C++ path is always preferred because it avoids Python→GPU data copies
-    and leverages ``GpuBufferLoader`` to stream from ``IndexProvider``.
+    The priority can be overridden via the ``ZVEC_GPU_BACKEND_PRIORITY``
+    environment variable — a comma-separated list of backend names, tried
+    in order.  Example::
+
+        ZVEC_GPU_BACKEND_PRIORITY=faiss_gpu,cuvs_cagra,faiss_cpu
 
     Args:
         dim: Vector dimensionality.
         n_vectors: Approximate number of vectors (hint for backend selection).
-        preference: Force a specific backend or ``"auto"``.
+        preference: Force a specific backend, ``"auto"``, or a device string
+            like ``"gpu"`` / ``"cpu"`` / ``"cuda:0"``.
         **kwargs: Passed through to the chosen adapter constructor.
 
     Returns:
@@ -413,24 +458,36 @@ def select_backend(
     # ------- explicit preference -------
     _pref = preference.lower().replace("-", "_")
 
-    if _pref == "cpp_cuvs_cagra":
-        return CppCuvsAdapter(algo="cagra", **kwargs)
-    if _pref == "cpp_cuvs_ivf_pq":
-        return CppCuvsAdapter(algo="ivf_pq", **kwargs)
-    if _pref == "cpp_cuvs_hnsw":
-        return CppCuvsAdapter(algo="hnsw", **kwargs)
-    if _pref == "cuvs_cagra":
-        return CuvsCAGRAAdapter(**kwargs)
-    if _pref == "cuvs_ivf_pq":
-        return CuvsIvfPqAdapter(**kwargs)
-    if _pref == "faiss_gpu":
-        return FaissGpuAdapter(dim=dim, **kwargs)
-    if _pref == "apple_mps":
-        return AppleMpsAdapter()
-    if _pref == "faiss_cpu":
-        return FaissCpuAdapter(dim=dim, **kwargs)
+    # Map device-style strings to backend categories
+    if _pref in ("gpu", "cuda", "cuda:0"):
+        _pref = "auto_gpu"
+    elif _pref == "cpu":
+        _pref = "faiss_cpu"
 
-    # ------- auto selection (C++ first) -------
+    # Direct backend name
+    if _pref not in ("auto", "auto_gpu"):
+        result = _try_create_backend(_pref, dim, n_vectors, **kwargs)
+        if result is not None:
+            return result
+        logger.warning(
+            "Explicit backend '%s' failed, falling through to auto", preference
+        )
+
+    # ------- env-var priority override -------
+    env_priority = os.environ.get(_ENV_PRIORITY_KEY, "").strip()
+    if env_priority:
+        backends = [b.strip() for b in env_priority.split(",") if b.strip()]
+        logger.info("Using custom backend priority from %s: %s", _ENV_PRIORITY_KEY, backends)
+        for name in backends:
+            result = _try_create_backend(name, dim, n_vectors, **kwargs)
+            if result is not None:
+                logger.info("Selected backend '%s' from env priority", name)
+                return result
+        logger.warning("No backend from %s succeeded, trying defaults", _ENV_PRIORITY_KEY)
+
+    # ------- auto selection -------
+    # If auto_gpu, skip CPU-only backends
+    gpu_only = _pref == "auto_gpu"
 
     # 1. C++ native cuVS — zero-copy, fastest
     if cpp_cuvs_available:
@@ -458,6 +515,12 @@ def select_backend(
     if APPLE_SILICON and MPS_AVAILABLE:
         logger.info("Auto-selected Apple MPS")
         return AppleMpsAdapter()
+
+    if gpu_only:
+        raise RuntimeError(
+            "device='gpu' requested but no GPU backend is available. "
+            "Install one of: cuvs, faiss-gpu, or torch (for Apple MPS)."
+        )
 
     # 5. FAISS CPU (fallback)
     if FAISS_AVAILABLE:

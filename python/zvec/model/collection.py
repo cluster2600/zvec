@@ -380,6 +380,74 @@ class Collection:
 
     # ========== GPU-Accelerated Index ==========
 
+    def index(
+        self,
+        field_name: str,
+        *,
+        device: Optional[str] = None,
+        backend: str = "auto",
+        gpu_threshold: Optional[int] = None,
+        **params,
+    ):
+        """Create a GPU-accelerated index for a vector field (PyTorch-style API).
+
+        Returns a :class:`~zvec.gpu_index.GpuIndex` bound to this collection.
+        The index must be populated by calling :meth:`GpuIndex.build` or
+        :meth:`GpuIndex.build_from_collection` before it can be queried.
+
+        The ``device`` parameter follows PyTorch conventions:
+
+        - ``"gpu"`` — use any available GPU
+        - ``"cuda:0"`` — use a specific CUDA device
+        - ``"cpu"`` — force CPU execution
+        - ``None`` — use *backend* (default ``"auto"``)
+
+        Backend selection priority (when ``device="gpu"`` or ``backend="auto"``):
+            1. C++ cuVS (native pybind11 — zero-copy, fastest)
+            2. Python cuVS CAGRA / IVF-PQ
+            3. FAISS GPU
+            4. Apple MPS
+            5. FAISS CPU (fallback)
+
+        Priority can be overridden via the ``ZVEC_GPU_BACKEND_PRIORITY``
+        environment variable.
+
+        Args:
+            field_name: Name of the vector field to index.
+            device: PyTorch-style device string. Takes precedence over
+                *backend* when set.
+            backend: Backend preference (``"auto"``, ``"cpp_cuvs_cagra"``,
+                ``"cuvs_cagra"``, ``"faiss_gpu"``, ``"apple_mps"``,
+                ``"faiss_cpu"``).
+            gpu_threshold: Number of vectors below which the auto-selector
+                prefers CPU over GPU.  Default ``50 000`` (configurable via
+                ``ZVEC_GPU_AUTO_THRESHOLD`` env var).  Set to ``0`` to always
+                use GPU.
+            **params: Extra parameters forwarded to the backend adapter.
+
+        Returns:
+            GpuIndex: An unbuilt GPU index.
+
+        Examples:
+            >>> gpu = collection.index("embedding", device="gpu")
+            >>> gpu.build(vectors, doc_ids)
+            >>> docs = gpu.query(query_vec, topk=10)
+
+            >>> # Or build directly from the collection
+            >>> gpu = collection.index("embedding", device="cuda:0")
+            >>> gpu.build_from_collection(batch_size=10_000)
+        """
+        from zvec.gpu_index import GpuIndex
+
+        return GpuIndex(
+            self,
+            field_name,
+            backend=backend,
+            device=device,
+            gpu_threshold=gpu_threshold,
+            **params,
+        )
+
     def gpu_index(
         self,
         field_name: str,
@@ -388,16 +456,13 @@ class Collection:
     ):
         """Create a GPU-accelerated index for a vector field.
 
+        .. deprecated::
+            Use :meth:`index` instead, which supports the ``device=``
+            parameter for PyTorch-style device selection.
+
         Returns a :class:`~zvec.gpu_index.GpuIndex` bound to this collection.
         The index must be populated by calling :meth:`GpuIndex.build` with
         vectors and document IDs before it can be queried.
-
-        Backend selection priority (C++ first):
-            1. C++ cuVS (native pybind11 — zero-copy, fastest)
-            2. Python cuVS CAGRA / IVF-PQ
-            3. FAISS GPU
-            4. Apple MPS
-            5. FAISS CPU (fallback)
 
         Args:
             field_name: Name of the vector field to index.
@@ -416,6 +481,14 @@ class Collection:
             >>> gpu.build(vectors, doc_ids)
             >>> docs = gpu.query(query_vec, topk=10)
         """
+        import warnings
+
+        warnings.warn(
+            "Collection.gpu_index() is deprecated. "
+            "Use Collection.index(field_name, device=...) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         from zvec.gpu_index import GpuIndex
 
         return GpuIndex(self, field_name, backend=backend, **params)
