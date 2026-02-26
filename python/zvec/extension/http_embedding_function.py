@@ -139,16 +139,13 @@ class HTTPDenseEmbedding(DenseEmbeddingFunction[TEXT]):
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
 
-        req = urllib.request.Request(
-            url, data=payload, headers=headers, method="POST"
-        )
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 body = json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             raise RuntimeError(
-                f"Embedding server returned HTTP {exc.code}: "
-                f"{exc.read().decode()}"
+                f"Embedding server returned HTTP {exc.code}: {exc.read().decode()}"
             ) from exc
         except OSError as exc:
             raise RuntimeError(

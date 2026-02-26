@@ -192,6 +192,7 @@ def run_demo(
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="zvec custom HTTP embedding demo (LM Studio / Ollama)",
