@@ -61,7 +61,7 @@ ANE_OPTIMIZATION_TIPS = """
 
 def estimate_ane_speedup(dim: int, _batch_size: int = 1) -> float:
     """Estimate ANE speedup based on paper.
-    
+
     From Ben Brown 2023:
     - ANE 3x faster for small embeddings (dim ≤ 256)
     - Lags for large batch operations
@@ -79,7 +79,7 @@ def get_optimal_ane_config(dim: int) -> dict:
     optimal_dim = 1
     while optimal_dim < dim:
         optimal_dim *= 2
-    
+
     return {
         "original_dim": dim,
         "optimal_dim": optimal_dim,
@@ -90,10 +90,10 @@ def get_optimal_ane_config(dim: int) -> dict:
 
 class ANEVectorEncoder:
     """Vector encoder optimized for Apple Neural Engine."""
-    
+
     def __init__(self, dim: int, batch_size: int = 1):
         """Initialize ANE encoder.
-        
+
         Args:
             dim: Embedding dimension.
             batch_size: Batch size for encoding.
@@ -101,21 +101,22 @@ class ANEVectorEncoder:
         self.dim = dim
         self.batch_size = batch_size
         self.config = get_optimal_ane_config(dim)
-        
+
         # Check ANE availability
         self.ane_available = self._check_ane()
-        
+
     def _check_ane(self) -> bool:
         """Check if ANE is available."""
         try:
             import torch  # noqa: PLC0415
+
             return torch.backends.mps.is_available()
         except ImportError:
             return False
-    
+
     def encode(self, texts: list[str]) -> np.ndarray:
         """Encode texts to embeddings using ANE.
-        
+
         This is a placeholder - actual implementation would use:
         1. BERT/DistilBERT model
         2. Core ML conversion
@@ -126,14 +127,13 @@ class ANEVectorEncoder:
         # Placeholder: random embeddings
         rng = np.random.default_rng()
         return rng.standard_normal((len(texts), self.dim)).astype(np.float16)
-        
-    
+
     def optimize_for_ane(self, model_path: str) -> str:
         """Convert PyTorch model to Core ML for ANE.
-        
+
         Args:
             model_path: Path to PyTorch model.
-            
+
         Returns:
             Path to Core ML model.
         """

@@ -151,9 +151,7 @@ class HNSWIndex:
 
         logger.info("Added %d vectors to HNSW index", n_vectors)
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:

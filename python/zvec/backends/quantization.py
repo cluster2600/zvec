@@ -50,25 +50,23 @@ class PQEncoder:
 
         # Adjust k if needed
         actual_k = min(self.k, max(1, n_vectors // 4))
-        
+
         sub_dim = dim // self.m
 
         # Split vectors into sub-vectors
         sub_vectors = vectors.reshape(n_vectors, self.m, sub_dim)
 
         # Train k-means for each sub-vector
-        self.codebooks = np.zeros(
-            (self.m, actual_k, sub_dim), dtype=np.float32
-        )
+        self.codebooks = np.zeros((self.m, actual_k, sub_dim), dtype=np.float32)
 
         rng = np.random.default_rng(42)
-        
+
         for i in range(self.m):
             sub = sub_vectors[:, i, :]
             # Initialize centroids randomly
             indices = rng.choice(n_vectors, actual_k, replace=False)
             centroids = sub[indices].copy()
-            
+
             # K-means iterations
             for _ in range(10):
                 # Assign to nearest centroid
@@ -76,7 +74,7 @@ class PQEncoder:
                     sub[:, np.newaxis, :] - centroids[np.newaxis, :, :], axis=2
                 )
                 labels = np.argmin(distances, axis=1)
-                
+
                 # Update centroids
                 new_centroids = np.zeros_like(centroids)
                 counts = np.zeros(actual_k)
@@ -84,7 +82,7 @@ class PQEncoder:
                     c = labels[j]
                     new_centroids[c] += sub[j]
                     counts[c] += 1
-                
+
                 # Avoid division by zero
                 counts = np.maximum(counts, 1)
                 centroids = new_centroids / counts[:, np.newaxis]
@@ -95,7 +93,9 @@ class PQEncoder:
         self._is_trained = True
         logger.info(
             "PQ trained: m=%d, nbits=%d, k=%d",
-            self.m, self.nbits, actual_k,
+            self.m,
+            self.nbits,
+            actual_k,
         )
 
     def encode(self, vectors: np.ndarray) -> np.ndarray:
@@ -175,9 +175,7 @@ class PQIndex:
         self.encoder.train(vectors)
         self.codes = self.encoder.encode(vectors)
 
-    def search(
-        self, queries: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:
@@ -196,17 +194,13 @@ class PQIndex:
 
         # Simple brute force using decoded vectors
         self.encoder.decode(self.codes)
-        
+
         all_distances = np.zeros((n_queries, n_database), dtype=np.float32)
         for i in range(n_queries):
-            all_distances[i] = np.linalg.norm(
-                self.database - queries[i], axis=1
-            )
+            all_distances[i] = np.linalg.norm(self.database - queries[i], axis=1)
 
         # Get k nearest
         indices = np.argsort(all_distances, axis=1)[:, :k]
-        distances = np.take_along_axis(
-            all_distances, indices, axis=1
-        )[:, :k]
+        distances = np.take_along_axis(all_distances, indices, axis=1)[:, :k]
 
         return distances, indices

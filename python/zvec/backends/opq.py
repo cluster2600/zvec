@@ -104,7 +104,7 @@ class OPQEncoder:
         # Learn rotation from error (simplified)
         # In full OPQ, this uses more sophisticated optimization
         U, _ = np.linalg.qr(error.T)
-        self.rotation_matrix = U[:vectors.shape[1], :vectors.shape[1]].T
+        self.rotation_matrix = U[: vectors.shape[1], : vectors.shape[1]].T
 
     def rotate(self, vectors: np.ndarray) -> np.ndarray:
         """Rotate vectors using the learned rotation matrix.
@@ -220,9 +220,7 @@ class ScalarQuantizer:
             raise RuntimeError("Quantizer not trained. Call train() first.")
 
         scaled = vectors / self.scale
-        return np.round(scaled).astype(
-            np.int8 if self.bits == 8 else np.int16
-        )
+        return np.round(scaled).astype(np.int8 if self.bits == 8 else np.int16)
 
     def decode(self, quantized: np.ndarray) -> np.ndarray:
         """Dequantize vectors.

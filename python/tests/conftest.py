@@ -21,6 +21,7 @@ import numpy as np
 # Minimal faiss mock (numpy-only, supports Flat indexes)
 # ---------------------------------------------------------------------------
 
+
 class _FaissIndexFlatL2:
     """Minimal IndexFlatL2 implemented in pure numpy."""
 

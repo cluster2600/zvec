@@ -75,9 +75,7 @@ class UnifiedGpuIndex(ABC):
         """
 
     @abstractmethod
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         """Search for *k* nearest neighbors.
 
         Args:
@@ -113,7 +111,10 @@ class FaissGpuAdapter(UnifiedGpuIndex):
 
     def train(self, vectors: np.ndarray) -> None:
         vectors = np.asarray(vectors, dtype=np.float32)
-        if hasattr(self._index._index, "is_trained") and not self._index._index.is_trained:
+        if (
+            hasattr(self._index._index, "is_trained")
+            and not self._index._index.is_trained
+        ):
             self._index.train(vectors)
         self._index.add(vectors)
 
@@ -121,9 +122,7 @@ class FaissGpuAdapter(UnifiedGpuIndex):
         vectors = np.asarray(vectors, dtype=np.float32)
         self._index.add(vectors)
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         queries = np.asarray(queries, dtype=np.float32)
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
@@ -148,7 +147,10 @@ class FaissCpuAdapter(UnifiedGpuIndex):
 
     def train(self, vectors: np.ndarray) -> None:
         vectors = np.asarray(vectors, dtype=np.float32)
-        if hasattr(self._index._index, "is_trained") and not self._index._index.is_trained:
+        if (
+            hasattr(self._index._index, "is_trained")
+            and not self._index._index.is_trained
+        ):
             self._index.train(vectors)
         self._index.add(vectors)
 
@@ -156,9 +158,7 @@ class FaissCpuAdapter(UnifiedGpuIndex):
         vectors = np.asarray(vectors, dtype=np.float32)
         self._index.add(vectors)
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         queries = np.asarray(queries, dtype=np.float32)
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
@@ -190,9 +190,7 @@ class CuvsCAGRAAdapter(UnifiedGpuIndex):
         # CAGRA builds the full graph in train(); add is a no-op.
         logger.debug("CAGRA: add() is a no-op (graph built during train)")
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         queries = np.asarray(queries, dtype=np.float32)
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
@@ -225,9 +223,7 @@ class CuvsIvfPqAdapter(UnifiedGpuIndex):
         self._index.add(vectors)
         self._size += vectors.shape[0]
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         queries = np.asarray(queries, dtype=np.float32)
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
@@ -296,9 +292,7 @@ class CppCuvsAdapter(UnifiedGpuIndex):
         else:
             logger.debug("C++ %s: add() is a no-op (built during train)", self._algo)
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         queries = np.ascontiguousarray(queries, dtype=np.float32)
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
@@ -337,9 +331,7 @@ class AppleMpsAdapter(UnifiedGpuIndex):
         else:
             self._database = np.vstack([self._database, vectors])
 
-    def search(
-        self, queries: np.ndarray, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         if self._database is None:
             raise RuntimeError("Index not built. Call train() first.")
         queries = np.asarray(queries, dtype=np.float32)
@@ -487,15 +479,22 @@ def select_backend(
 
     # ------- auto selection -------
     return _auto_select(
-        dim, n_vectors, _pref == "auto_gpu",
-        cpp_cuvs_available, py_cuvs_available,
-        FAISS_GPU_AVAILABLE, APPLE_SILICON and MPS_AVAILABLE, FAISS_AVAILABLE,
+        dim,
+        n_vectors,
+        _pref == "auto_gpu",
+        cpp_cuvs_available,
+        py_cuvs_available,
+        FAISS_GPU_AVAILABLE,
+        APPLE_SILICON and MPS_AVAILABLE,
+        FAISS_AVAILABLE,
         **kwargs,
     )
 
 
 def _try_env_priority(
-    dim: int, n_vectors: int, **kwargs: Any,
+    dim: int,
+    n_vectors: int,
+    **kwargs: Any,
 ) -> UnifiedGpuIndex | None:
     """Try backends listed in ``ZVEC_GPU_BACKEND_PRIORITY``."""
     env_priority = os.environ.get(_ENV_PRIORITY_KEY, "").strip()
@@ -503,7 +502,9 @@ def _try_env_priority(
         return None
     backends = [b.strip() for b in env_priority.split(",") if b.strip()]
     logger.info(
-        "Using custom backend priority from %s: %s", _ENV_PRIORITY_KEY, backends,
+        "Using custom backend priority from %s: %s",
+        _ENV_PRIORITY_KEY,
+        backends,
     )
     for name in backends:
         result = _try_create_backend(name, dim, n_vectors, **kwargs)

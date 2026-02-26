@@ -129,9 +129,7 @@ class cuVSIndex:
         vectors = np.asarray(vectors, dtype=np.float32)
         logger.info("Adding %d vectors to cuVS index", vectors.shape[0])
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:

@@ -52,9 +52,11 @@ class TestSelectBackend:
         from zvec.backends.unified import select_backend
 
         # Patch all GPU detection to False
-        with patch("zvec.backends.detect.FAISS_GPU_AVAILABLE", False), \
-             patch("zvec.backends.detect.MPS_AVAILABLE", False), \
-             patch("zvec.backends.detect.APPLE_SILICON", False):
+        with (
+            patch("zvec.backends.detect.FAISS_GPU_AVAILABLE", False),
+            patch("zvec.backends.detect.MPS_AVAILABLE", False),
+            patch("zvec.backends.detect.APPLE_SILICON", False),
+        ):
             # Also patch cuVS imports to fail
             with patch.dict("sys.modules", {"_zvec": None, "cuvs": None}):
                 with pytest.raises(RuntimeError, match="no GPU backend"):

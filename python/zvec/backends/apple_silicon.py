@@ -82,9 +82,7 @@ class AppleSiliconBackend:
         """Get selected backend."""
         return self._selected
 
-    def matrix_multiply(
-        self, a: np.ndarray, b: np.ndarray
-    ) -> np.ndarray:
+    def matrix_multiply(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """Matrix multiplication.
 
         Args:
@@ -137,8 +135,8 @@ class AppleSiliconBackend:
         b_torch = torch.from_numpy(b).to("mps")
 
         # Compute squared distances: ||a||^2 - 2*a.b + ||b||^2
-        a_sq = torch.sum(a_torch ** 2, dim=1)
-        b_sq = torch.sum(b_torch ** 2, dim=1)
+        a_sq = torch.sum(a_torch**2, dim=1)
+        b_sq = torch.sum(b_torch**2, dim=1)
         ab = torch.mm(a_torch, b_torch.T)
 
         distances = a_sq.unsqueeze(1) - 2 * ab + b_sq.unsqueeze(0)
@@ -147,8 +145,8 @@ class AppleSiliconBackend:
 
     def _numpy_l2_distance(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """L2 distance using NumPy."""
-        a_sq = np.sum(a ** 2, axis=1, keepdims=True)
-        b_sq = np.sum(b ** 2, axis=1)
+        a_sq = np.sum(a**2, axis=1, keepdims=True)
+        b_sq = np.sum(b**2, axis=1)
         ab = a @ b.T
         distances = a_sq + b_sq - 2 * ab
         distances = np.clip(distances, 0, None)  # Numerical stability

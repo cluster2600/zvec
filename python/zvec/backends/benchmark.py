@@ -166,19 +166,19 @@ def run_benchmarks(
     logger.info("Running NumPy benchmark...")
     result = benchmark_numpy(database, queries, k)
     results.append(result)
-    logger.info("  NumPy: %.4fs", result['time'])
+    logger.info("  NumPy: %.4fs", result["time"])
 
     # FAISS CPU
     result = benchmark_faiss_cpu(database, queries, k)
     if result:
         results.append(result)
-        logger.info("  FAISS CPU: %.4fs", result['time'])
+        logger.info("  FAISS CPU: %.4fs", result["time"])
 
     # FAISS GPU
     result = benchmark_faiss_gpu(database, queries, k)
     if result:
         results.append(result)
-        logger.info("  FAISS GPU: %.4fs", result['time'])
+        logger.info("  FAISS GPU: %.4fs", result["time"])
 
     return results
 

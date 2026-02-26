@@ -34,7 +34,7 @@ EXPECTED_RESULTS = """
 
 def benchmark_ane_vs_mps(dim: int, n_queries: int = 100):
     """Placeholder for ANE vs MPS benchmark.
-    
+
     Requires:
     - Apple Silicon Mac
     - Core ML model for ANE

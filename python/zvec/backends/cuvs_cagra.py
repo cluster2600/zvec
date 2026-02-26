@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 try:
     import cuvs.neighbors.cagra as cuvs_cagra
+
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_cagra = None

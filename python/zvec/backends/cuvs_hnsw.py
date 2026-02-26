@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 try:
     import cuvs.neighbors.hnsw as cuvs_hnsw
+
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_hnsw = None
@@ -77,9 +78,7 @@ class cuVSHNSWIndex:
 
         return self
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors."""
         query = np.asarray(query, dtype=np.float32)
         n_queries = query.shape[0]

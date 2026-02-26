@@ -59,14 +59,12 @@ def compute_distance_table_fast(
     queries_reshaped = queries.reshape(n_queries, m, sub_dim)
 
     # Compute distances for each sub-vector
-    distance_table = np.zeros(
-        (n_queries, m, codebooks.shape[1]), dtype=np.float32
-    )
+    distance_table = np.zeros((n_queries, m, codebooks.shape[1]), dtype=np.float32)
 
     for i in range(m):
         # Broadcasting: (Q, 1, sub_dim) - (1, k, sub_dim) -> (Q, k, sub_dim)
-        diff = queries_reshaped[:, i:i+1, :] - codebooks[i:i+1, :, :]
-        distance_table[:, i, :] = np.sum(diff ** 2, axis=2)
+        diff = queries_reshaped[:, i : i + 1, :] - codebooks[i : i + 1, :, :]
+        distance_table[:, i, :] = np.sum(diff**2, axis=2)
 
     return distance_table
 
@@ -162,7 +160,7 @@ def search_with_reranking(
 
         # Compute exact L2 distances
         diff = candidate_vectors - queries[i]
-        exact_distances = np.sum(diff ** 2, axis=1)
+        exact_distances = np.sum(diff**2, axis=1)
 
         # Sort by exact distance
         sorted_order = np.argsort(exact_distances)

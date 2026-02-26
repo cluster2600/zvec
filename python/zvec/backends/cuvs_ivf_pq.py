@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 try:
     import cuvs.neighbors.ivf_pq as cuvs_ivf_pq
+
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_ivf_pq = None
@@ -157,9 +158,7 @@ class cuVSIVFPQIndex:
 
         return self
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:

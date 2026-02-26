@@ -65,9 +65,10 @@ def generate_synthetic_data(
     # Handle remainder
     remainder = n_vectors % n_clusters
     if remainder:
-        extra = cluster_centers[:remainder] + rng.standard_normal(
-            (remainder, dim)
-        ).astype(np.float32) * 2
+        extra = (
+            cluster_centers[:remainder]
+            + rng.standard_normal((remainder, dim)).astype(np.float32) * 2
+        )
         vectors.append(extra)
 
     return np.vstack(vectors)
@@ -93,7 +94,7 @@ def benchmark_faiss_ivf_pq(
     index.nprobe = nprobe
 
     # Train
-    train_vectors = database[:min(100000, len(database))]
+    train_vectors = database[: min(100000, len(database))]
     start = time.time()
     index.train(train_vectors)
     train_time = time.time() - start
@@ -259,20 +260,11 @@ def run_benchmarks(
         f.write("| cuVS HNSW | 9x vs CPU |\n")
 
 
-
 def main():
-    parser = argparse.ArgumentParser(
-        description="Benchmark cuVS vs FAISS GPU"
-    )
-    parser.add_argument(
-        "--vectors", type=int, default=100000, help="Number of vectors"
-    )
-    parser.add_argument(
-        "--dim", type=int, default=128, help="Vector dimension"
-    )
-    parser.add_argument(
-        "--queries", type=int, default=1000, help="Number of queries"
-    )
+    parser = argparse.ArgumentParser(description="Benchmark cuVS vs FAISS GPU")
+    parser.add_argument("--vectors", type=int, default=100000, help="Number of vectors")
+    parser.add_argument("--dim", type=int, default=128, help="Vector dimension")
+    parser.add_argument("--queries", type=int, default=1000, help="Number of queries")
     parser.add_argument(
         "--output", type=str, default="benchmark_results.md", help="Output file"
     )

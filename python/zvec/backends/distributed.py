@@ -74,9 +74,7 @@ class ShardManager:
         """
         return list(range(self.n_shards))
 
-    def add_vector(
-        self, vector: np.ndarray, vector_id: str | int
-    ) -> None:
+    def add_vector(self, vector: np.ndarray, vector_id: str | int) -> None:
         """Add a vector to the appropriate shard.
 
         Args:
@@ -246,6 +244,7 @@ class QueryRouter:
             return list(range(self.shard_manager.n_shards))
         if strategy == "random":
             import random  # noqa: PLC0415
+
             n = max(1, self.shard_manager.n_shards // 2)
             return random.sample(range(self.shard_manager.n_shards), n)
         return list(range(self.shard_manager.n_shards))
