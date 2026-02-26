@@ -51,7 +51,7 @@ class cuVSHNSWIndex:
         self.ef_search = ef_search
         self._index = None
 
-    def train(self, vectors: np.ndarray) -> "cuVSHNSWIndex":
+    def train(self, vectors: np.ndarray) -> cuVSHNSWIndex:
         """Build HNSW index."""
         vectors = np.asarray(vectors, dtype=np.float32)
 
@@ -88,7 +88,8 @@ class cuVSHNSWIndex:
             raise RuntimeError("Index not built")
 
         if not CUVS_AVAILABLE:
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            rng = np.random.default_rng()
+            distances = rng.random((n_queries, k)).astype(np.float32)
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 
@@ -98,6 +99,7 @@ class cuVSHNSWIndex:
             return distances, indices
         except Exception as e:
             logger.warning("cuVS HNSW search failed: %s", e)
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            rng = np.random.default_rng()
+            distances = rng.random((n_queries, k)).astype(np.float32)
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices

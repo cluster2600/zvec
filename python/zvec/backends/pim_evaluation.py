@@ -19,6 +19,9 @@ Based on:
 2. **Cost-sensitive**: PIM more efficient per dollar
 3. **Edge devices**: PIM + small GPU
 """
+from __future__ import annotations
+
+import numpy as np
 
 PIM_COMPARISON = """
 | Technology | Scale | Latency | Cost | Notes |
@@ -71,4 +74,3 @@ class PIMVectorIndex:
     def search(self, query, k=10):
         """Search across all PIM banks in parallel."""
         # Simulated parallel search
-        pass

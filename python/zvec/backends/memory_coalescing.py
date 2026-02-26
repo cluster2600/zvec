@@ -8,6 +8,13 @@ Expected speedup: 2-8x for vector distance computation.
 """
 
 # CUDA Kernel Code (for reference)
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+
 CUDA_COALESCED_L2_KERNEL = """
 // Coalesced L2 distance kernel
 // Each thread handles one query-database pair
@@ -44,20 +51,20 @@ __global__ void coalesced_l2_distance(
 """
 
 
-def coalesced_l2_distance_numpy(queries: "np.ndarray", database: "np.ndarray") -> "np.ndarray":
+def coalesced_l2_distance_numpy(queries: np.ndarray, database: np.ndarray) -> np.ndarray:
     """Compute L2 distances using coalesced access pattern.
     
     This is a NumPy implementation that follows coalesced access principles:
     - Process data in row-major order
     - Minimize stride-1 accesses
     """
-    import numpy as np
-    
+    import numpy as np  # noqa: PLC0415
+
     # Transpose for better cache utilization
     queries = np.asarray(queries, dtype=np.float32)
     database = np.asarray(database, dtype=np.float32)
     
-    n_queries, dim = queries.shape
+    n_queries, _dim = queries.shape
     n_database = database.shape[0]
     
     # Pre-allocate output
@@ -96,12 +103,13 @@ def benchmark_coalesced_vs_naive(
     dim: int = 128,
 ) -> dict:
     """Benchmark coalesced vs naive implementation."""
-    import numpy as np
-    import time
-    
-    np.random.seed(42)
-    queries = np.random.random((n_queries, dim)).astype(np.float32)
-    database = np.random.random((n_database, dim)).astype(np.float32)
+    import time  # noqa: PLC0415
+
+    import numpy as np  # noqa: PLC0415
+
+    rng = np.random.default_rng(42)
+    queries = rng.random((n_queries, dim)).astype(np.float32)
+    database = rng.random((n_database, dim)).astype(np.float32)
     
     # Naive (stride > 1)
     start = time.time()
@@ -113,7 +121,7 @@ def benchmark_coalesced_vs_naive(
     
     # Coalesced
     start = time.time()
-    coalesced_dist = coalesced_l2_distance_numpy(queries, database)
+    coalesced_l2_distance_numpy(queries, database)
     coalesced_time = time.time() - start
     
     return {

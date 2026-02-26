@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import platform
-from typing import Any
 
 import numpy as np
 
@@ -73,10 +72,9 @@ class AppleSiliconBackend:
         if self._backend == "auto":
             if MPS_AVAILABLE:
                 return "mps"
-            elif ACCELERATE_AVAILABLE:
+            if ACCELERATE_AVAILABLE:
                 return "accelerate"
-            else:
-                return "numpy"
+            return "numpy"
         return self._backend
 
     @property
@@ -98,14 +96,13 @@ class AppleSiliconBackend:
         """
         if self._selected == "mps":
             return self._mps_matmul(a, b)
-        elif self._selected == "accelerate":
+        if self._selected == "accelerate":
             return self._accelerate_matmul(a, b)
-        else:
-            return a @ b
+        return a @ b
 
     def _mps_matmul(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """Matrix multiplication using PyTorch MPS."""
-        import torch
+        import torch  # noqa: PLC0415
 
         a_torch = torch.from_numpy(a).to("mps")
         b_torch = torch.from_numpy(b).to("mps")
@@ -129,13 +126,12 @@ class AppleSiliconBackend:
         """
         if self._selected == "mps":
             return self._mps_l2_distance(a, b)
-        else:
-            # NumPy implementation (already optimized with Accelerate)
-            return self._numpy_l2_distance(a, b)
+        # NumPy implementation (already optimized with Accelerate)
+        return self._numpy_l2_distance(a, b)
 
     def _mps_l2_distance(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """L2 distance using PyTorch MPS."""
-        import torch
+        import torch  # noqa: PLC0415
 
         a_torch = torch.from_numpy(a).to("mps")
         b_torch = torch.from_numpy(b).to("mps")

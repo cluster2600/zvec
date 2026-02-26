@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 
 try:
-    import cuvs  # noqa: F401
+    import cuvs
 
     CUVS_AVAILABLE = True
 except ImportError:
-    cuvs = None  # type: ignore
+    cuvs = None  # type: ignore[assignment]
 
 
 class cuVSIndex:

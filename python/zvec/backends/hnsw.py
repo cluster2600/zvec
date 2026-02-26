@@ -64,7 +64,7 @@ class HNSWIndex:
 
     def _get_random_level(self) -> int:
         """Get random level for new element using exponential distribution."""
-        import random
+        import random  # noqa: PLC0415
 
         level = 0
         while random.random() < 0.5 and level < self.max_elements:
@@ -114,7 +114,7 @@ class HNSWIndex:
                 heapq.heappop(results)
 
             # Explore neighbors
-            for neighbor_id, neighbor_dist in neighbors:
+            for neighbor_id, _neighbor_dist in neighbors:
                 if neighbor_id in visited:
                     continue
                 visited.add(neighbor_id)
@@ -149,7 +149,7 @@ class HNSWIndex:
             self.graph = [{} for _ in range(1)]
             self.entry_point = 0
 
-        logger.info(f"Added {n_vectors} vectors to HNSW index")
+        logger.info("Added %d vectors to HNSW index", n_vectors)
 
     def search(
         self, query: np.ndarray, k: int = 10
@@ -210,12 +210,14 @@ class HNSWIndex:
             "entry_point": self.entry_point,
             "max_level": self.max_level,
         }
-        with open(filepath, "wb") as f:
+        from pathlib import Path  # noqa: PLC0415
+
+        with Path(filepath).open("wb") as f:
             pickle.dump(data, f)
-        logger.info(f"Saved HNSW index to {filepath}")
+        logger.info("Saved HNSW index to %s", filepath)
 
     @classmethod
-    def load(cls, filepath: str) -> "HNSWIndex":
+    def load(cls, filepath: str) -> HNSWIndex:
         """Load index from file.
 
         Args:
@@ -224,7 +226,9 @@ class HNSWIndex:
         Returns:
             Loaded HNSWIndex.
         """
-        with open(filepath, "rb") as f:
+        from pathlib import Path  # noqa: PLC0415
+
+        with Path(filepath).open("rb") as f:
             data = pickle.load(f)
 
         index = cls(
@@ -239,7 +243,7 @@ class HNSWIndex:
         index.entry_point = data["entry_point"]
         index.max_level = data["max_level"]
 
-        logger.info(f"Loaded HNSW index from {filepath}")
+        logger.info("Loaded HNSW index from %s", filepath)
         return index
 
 
@@ -248,7 +252,7 @@ def create_hnsw_index(
     M: int = 16,
     efConstruction: int = 200,
     efSearch: int = 50,
-    use_faiss: bool = True,
+    use_faiss: bool = True,  # noqa: ARG001
 ) -> HNSWIndex | Any:
     """Create HNSW index.
 
@@ -264,7 +268,7 @@ def create_hnsw_index(
     """
     # Try FAISS first for better performance
     try:
-        import faiss
+        import faiss  # noqa: PLC0415
 
         index = faiss.IndexHNSWFlat(dim, M)
         index.hnsw.efConstruction = efConstruction

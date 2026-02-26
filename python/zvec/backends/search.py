@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -52,7 +51,7 @@ def compute_distance_table_fast(
     Returns:
         Distance table (Q x m x k).
     """
-    n_queries, dim = queries.shape
+    n_queries, _dim = queries.shape
     m = codebooks.shape[0]
     sub_dim = codebooks.shape[2]
 
@@ -112,7 +111,7 @@ def batch_search(
         )
         all_distances[start:end] = batch_distances
 
-        logger.info(f"Processed {end}/{n_queries} queries")
+        logger.info("Processed %d/%d queries", end, n_queries)
 
     # Get top k for each query
     indices = np.argsort(all_distances, axis=1)[:, :k]
@@ -143,7 +142,7 @@ def search_with_reranking(
         Tuple of (distances, indices).
     """
     n_queries = queries.shape[0]
-    n_database = database.shape[0]
+    database.shape[0]
 
     # Initial PQ search
     distance_table = compute_distance_table_fast(queries, codebooks)

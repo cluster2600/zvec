@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 # Public API — grouped by category
 # ==============================
 
-from . import model as model
 from . import backends as backends
+from . import model as model
 
 # —— Extensions ——
 from .extension import (
@@ -48,6 +48,9 @@ from .extension import (
     WeightedReRanker,
 )
 
+# —— GPU-accelerated indexing ——
+from .gpu_index import GpuIndex
+
 # —— Typing ——
 from .model import param as param
 from .model import schema as schema
@@ -55,9 +58,6 @@ from .model import schema as schema
 # —— Core data structures ——
 from .model.collection import Collection
 from .model.doc import Doc
-
-# —— GPU-accelerated indexing ——
-from .gpu_index import GpuIndex
 
 # —— Query & index parameters ——
 from .model.param import (

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -196,7 +195,7 @@ class PQIndex:
         n_database = self.database.shape[0]
 
         # Simple brute force using decoded vectors
-        decoded = self.encoder.decode(self.codes)
+        self.encoder.decode(self.codes)
         
         all_distances = np.zeros((n_queries, n_database), dtype=np.float32)
         for i in range(n_queries):

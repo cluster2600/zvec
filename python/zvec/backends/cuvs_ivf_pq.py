@@ -12,7 +12,6 @@ Expected performance:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -87,7 +86,7 @@ class cuVSIVFPQIndex:
             "k": 10,
         }
 
-    def train(self, vectors: np.ndarray) -> "cuVSIVFPQIndex":
+    def train(self, vectors: np.ndarray) -> cuVSIVFPQIndex:
         """Train the IVF-PQ index.
 
         Args:
@@ -133,7 +132,7 @@ class cuVSIVFPQIndex:
 
         return self
 
-    def add(self, vectors: np.ndarray) -> "cuVSIVFPQIndex":
+    def add(self, vectors: np.ndarray) -> cuVSIVFPQIndex:
         """Add vectors to the index.
 
         Args:
@@ -178,14 +177,15 @@ class cuVSIVFPQIndex:
 
         if not CUVS_AVAILABLE:
             # Simulated search - return random results
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            rng = np.random.default_rng()
+            distances = rng.random((n_queries, k)).astype(np.float32)
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 
         try:
             # cuVS API: ivf_pq.search(SearchParams, index, queries, k)
             # queries must be CUDA arrays — convert via cupy
-            import cupy as cp
+            import cupy as cp  # noqa: PLC0415
 
             search_params = cuvs_ivf_pq.SearchParams(
                 n_probes=self.nprobe,
@@ -202,7 +202,8 @@ class cuVSIVFPQIndex:
 
         except Exception as e:
             logger.warning("cuVS search failed: %s", e)
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            rng = np.random.default_rng()
+            distances = rng.random((n_queries, k)).astype(np.float32)
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 

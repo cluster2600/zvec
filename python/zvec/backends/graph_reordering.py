@@ -11,6 +11,7 @@ Key finding: 15% QPS improvement with minimal recall loss.
 2. **CMDK**: Clustering-based multi-dimensional key
 3. **RDAM**: Random-disorder adaptive merging
 """
+from __future__ import annotations
 
 import numpy as np
 
@@ -48,7 +49,7 @@ def bfs_reorder(vectors: np.ndarray, graph: dict) -> np.ndarray:
 
 def cmdk_reorder(vectors: np.ndarray, n_clusters: int = 256) -> np.ndarray:
     """CMDK reordering - cluster then sort by distance to centroids."""
-    from sklearn.cluster import KMeans
+    from sklearn.cluster import KMeans  # noqa: PLC0415
     
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     labels = kmeans.fit_predict(vectors)
@@ -77,11 +78,11 @@ def benchmark_reordering(vectors: np.ndarray, graph: dict) -> dict:
     original_time = 1.0  # Baseline
     
     # BFS reorder
-    bfs_order = bfs_reorder(vectors, graph)
+    bfs_reorder(vectors, graph)
     bfs_speedup = 1.15  # ~15% improvement
     
     # CMDK reorder  
-    cmdk_order = cmdk_reorder(vectors)
+    cmdk_reorder(vectors)
     cmdk_speedup = 1.12
     
     return {

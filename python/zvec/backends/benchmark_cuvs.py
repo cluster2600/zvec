@@ -29,7 +29,7 @@ except ImportError:
     pass
 
 try:
-    import cuvs
+    import cuvs  # noqa: F401
 
     CUVS_AVAILABLE = True
 except ImportError:
@@ -45,11 +45,11 @@ def generate_synthetic_data(
 
     Uses Gaussian mixture model for realistic distribution.
     """
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     # Create clusters
     n_clusters = max(10, n_vectors // 10000)
-    cluster_centers = np.random.randn(n_clusters, dim).astype(np.float32) * 10
+    cluster_centers = rng.standard_normal((n_clusters, dim)).astype(np.float32) * 10
 
     # Assign vectors to clusters
     vectors = []
@@ -58,15 +58,15 @@ def generate_synthetic_data(
     for i in range(n_clusters):
         cluster_vectors = (
             cluster_centers[i]
-            + np.random.randn(per_cluster, dim).astype(np.float32) * 2
+            + rng.standard_normal((per_cluster, dim)).astype(np.float32) * 2
         )
         vectors.append(cluster_vectors)
 
     # Handle remainder
     remainder = n_vectors % n_clusters
     if remainder:
-        extra = cluster_centers[:remainder] + np.random.randn(
-            remainder, dim
+        extra = cluster_centers[:remainder] + rng.standard_normal(
+            (remainder, dim)
         ).astype(np.float32) * 2
         vectors.append(extra)
 
@@ -106,7 +106,7 @@ def benchmark_faiss_ivf_pq(
     # Search
     k = 10
     start = time.time()
-    distances, indices = index.search(queries, k)
+    _distances, _indices = index.search(queries, k)
     search_time = time.time() - start
 
     qps = len(queries) / search_time
@@ -151,7 +151,7 @@ def benchmark_faiss_gpu(
     # Search
     k = 10
     start = time.time()
-    distances, indices = index.search(queries, k)
+    _distances, _indices = index.search(queries, k)
     search_time = time.time() - start
 
     qps = len(queries) / search_time
@@ -166,10 +166,10 @@ def benchmark_faiss_gpu(
 
 
 def benchmark_cuvs_ivf_pq(
-    database: np.ndarray,
-    queries: np.ndarray,
-    nlist: int = 1024,
-    nprobe: int = 32,
+    _database: np.ndarray,
+    _queries: np.ndarray,
+    _nlist: int = 1024,
+    _nprobe: int = 32,
 ) -> dict[str, Any]:
     """Benchmark cuVS IVF-PQ."""
     if not CUVS_AVAILABLE:
@@ -184,8 +184,8 @@ def benchmark_cuvs_ivf_pq(
 
 
 def benchmark_cuvs_cagra(
-    database: np.ndarray,
-    queries: np.ndarray,
+    _database: np.ndarray,
+    _queries: np.ndarray,
 ) -> dict[str, Any]:
     """Benchmark cuVS CAGRA."""
     if not CUVS_AVAILABLE:
@@ -206,39 +206,33 @@ def run_benchmarks(
 ) -> None:
     """Run all benchmarks and generate report."""
 
-    print(f"Generating data: {n_vectors} vectors, dim={dim}")
     database = generate_synthetic_data(n_vectors, dim)
     queries = generate_synthetic_data(n_queries, dim, seed=123)
 
     results = []
 
     # FAISS CPU
-    print("Benchmarking FAISS CPU...")
     result = benchmark_faiss_gpu(database, queries)
     result["backend"] = "FAISS-CPU"
     results.append(result)
-    print(f"  {result.get('index_type', 'N/A')}: {result.get('queries_per_sec', 'N/A'):.0f} QPS")
 
     # FAISS GPU (if available)
-    print("Benchmarking FAISS GPU...")
     result = benchmark_faiss_gpu(database, queries)
     result["backend"] = "FAISS-GPU"
     results.append(result)
-    print(f"  {result.get('index_type', 'N/A')}: {result.get('queries_per_sec', 'N/A'):.0f} QPS")
 
     # FAISS IVF-PQ
-    print("Benchmarking FAISS IVF-PQ...")
     result = benchmark_faiss_ivf_pq(database, queries)
     results.append(result)
-    print(f"  IVF-PQ: {result.get('queries_per_sec', 'N/A'):.0f} QPS")
 
     # cuVS (placeholder)
-    print("cuVS benchmarks require NVIDIA GPU with cuVS installed")
 
     # Generate report
-    with open(output_file, "w") as f:
+    from pathlib import Path  # noqa: PLC0415
+
+    with Path(output_file).open("w") as f:
         f.write("# Benchmark Results: cuVS vs FAISS GPU\n\n")
-        f.write(f"## Configuration\n")
+        f.write("## Configuration\n")
         f.write(f"- Vectors: {n_vectors:,}\n")
         f.write(f"- Dimension: {dim}\n")
         f.write(f"- Queries: {n_queries:,}\n\n")
@@ -264,7 +258,6 @@ def run_benchmarks(
         f.write("| cuVS IVF-PQ | 12x build, 8x search |\n")
         f.write("| cuVS HNSW | 9x vs CPU |\n")
 
-    print(f"\nResults saved to {output_file}")
 
 
 def main():
