@@ -42,6 +42,8 @@ set(CPACK_PACKAGE_NAME zvec)
 include(CPack)
 
 if(BUILD_PYTHON_BINDINGS)
+    add_subdirectory(src/binding/python)
+    
     if(APPLE)
         set(CMAKE_STRIP "")
         message(STATUS "Disabled strip on macOS to preserve code signature")
