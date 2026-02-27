@@ -46,22 +46,34 @@ class ProductQuantizer {
       : m_(m), k_(k), n_iter_(n_iter) {}
 
   //! Retrieve the number of sub-quantizers
-  size_t m() const { return m_; }
+  size_t m() const {
+    return m_;
+  }
 
   //! Retrieve the number of centroids per sub-quantizer
-  size_t k() const { return k_; }
+  size_t k() const {
+    return k_;
+  }
 
   //! Retrieve the sub-vector dimension
-  size_t sub_dim() const { return sub_dim_; }
+  size_t sub_dim() const {
+    return sub_dim_;
+  }
 
   //! Retrieve the full vector dimension
-  size_t dim() const { return m_ * sub_dim_; }
+  size_t dim() const {
+    return m_ * sub_dim_;
+  }
 
   //! Check if the quantizer is trained
-  bool is_trained() const { return is_trained_; }
+  bool is_trained() const {
+    return is_trained_;
+  }
 
   //! Retrieve codebook data (m * k * sub_dim)
-  const std::vector<float> &codebooks() const { return codebooks_; }
+  const std::vector<float> &codebooks() const {
+    return codebooks_;
+  }
 
   //! Retrieve a pointer to centroids for sub-quantizer i, centroid j
   const float *centroid(size_t i, size_t j) const {
@@ -85,9 +97,8 @@ class ProductQuantizer {
       // Extract sub-vectors for this partition
       std::vector<float> sub(n * sub_dim_);
       for (size_t i = 0; i < n; ++i) {
-        std::memcpy(sub.data() + i * sub_dim_,
-                     data + i * dim + s * sub_dim_,
-                     sub_dim_ * sizeof(float));
+        std::memcpy(sub.data() + i * sub_dim_, data + i * dim + s * sub_dim_,
+                    sub_dim_ * sizeof(float));
       }
 
       // Initialize centroids randomly
@@ -98,8 +109,8 @@ class ProductQuantizer {
       float *centroids = codebooks_.data() + s * actual_k * sub_dim_;
       for (size_t j = 0; j < actual_k; ++j) {
         std::memcpy(centroids + j * sub_dim_,
-                     sub.data() + indices[j] * sub_dim_,
-                     sub_dim_ * sizeof(float));
+                    sub.data() + indices[j] * sub_dim_,
+                    sub_dim_ * sizeof(float));
       }
 
       // K-means iterations
@@ -115,8 +126,7 @@ class ProductQuantizer {
           for (size_t j = 0; j < actual_k; ++j) {
             float dist = 0.0f;
             for (size_t d = 0; d < sub_dim_; ++d) {
-              float diff = sub[i * sub_dim_ + d] -
-                           centroids[j * sub_dim_ + d];
+              float diff = sub[i * sub_dim_ + d] - centroids[j * sub_dim_ + d];
               dist += diff * diff;
             }
             if (dist < best_dist) {
@@ -141,7 +151,8 @@ class ProductQuantizer {
           if (counts[j] > 0) {
             float inv = 1.0f / static_cast<float>(counts[j]);
             for (size_t d = 0; d < sub_dim_; ++d) {
-              centroids[j * sub_dim_ + d] = new_centroids[j * sub_dim_ + d] * inv;
+              centroids[j * sub_dim_ + d] =
+                  new_centroids[j * sub_dim_ + d] * inv;
             }
           }
         }
@@ -193,11 +204,9 @@ class ProductQuantizer {
     for (size_t i = 0; i < n; ++i) {
       for (size_t s = 0; s < m_; ++s) {
         uint8_t c = codes[i * m_ + s];
-        const float *centroid_ptr = codebooks_.data() +
-                                    (s * k_ + c) * sub_dim_;
-        std::memcpy(out + i * dim + s * sub_dim_,
-                     centroid_ptr,
-                     sub_dim_ * sizeof(float));
+        const float *centroid_ptr = codebooks_.data() + (s * k_ + c) * sub_dim_;
+        std::memcpy(out + i * dim + s * sub_dim_, centroid_ptr,
+                    sub_dim_ * sizeof(float));
       }
     }
   }

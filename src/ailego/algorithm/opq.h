@@ -42,20 +42,28 @@ class OptimizedProductQuantizer {
   //! @param n_iter Number of outer OPQ iterations.
   //! @param pq_iter Number of inner k-means iterations per PQ training.
   OptimizedProductQuantizer(size_t m, size_t k, size_t n_iter = 20,
-                             size_t pq_iter = 10)
+                            size_t pq_iter = 10)
       : m_(m), k_(k), n_iter_(n_iter), pq_iter_(pq_iter) {}
 
   //! Retrieve the number of sub-quantizers
-  size_t m() const { return m_; }
+  size_t m() const {
+    return m_;
+  }
 
   //! Retrieve the number of centroids per sub-quantizer
-  size_t k() const { return k_; }
+  size_t k() const {
+    return k_;
+  }
 
   //! Retrieve the vector dimension
-  size_t dim() const { return dim_; }
+  size_t dim() const {
+    return dim_;
+  }
 
   //! Check if the quantizer is trained
-  bool is_trained() const { return is_trained_; }
+  bool is_trained() const {
+    return is_trained_;
+  }
 
   //! Retrieve the learned rotation matrix (dim x dim, row-major)
   const std::vector<float> &rotation_matrix() const {
@@ -63,7 +71,9 @@ class OptimizedProductQuantizer {
   }
 
   //! Retrieve the underlying PQ quantizer
-  const ProductQuantizer &pq() const { return *pq_; }
+  const ProductQuantizer &pq() const {
+    return *pq_;
+  }
 
   //! Train the OPQ on a set of vectors.
   //! Alternates between learning the rotation R and retraining PQ codebooks.
@@ -167,9 +177,8 @@ class OptimizedProductQuantizer {
 
   //! Matrix multiplication: C = A * B (or A * B^T)
   //! A is (M x K), B is (K x N) or (N x K) if transpose_b.
-  static void MatMul(const float *A, const float *B, float *C,
-                     size_t M, size_t K, size_t N,
-                     bool transpose_a, bool transpose_b) {
+  static void MatMul(const float *A, const float *B, float *C, size_t M,
+                     size_t K, size_t N, bool transpose_a, bool transpose_b) {
     for (size_t i = 0; i < M; ++i) {
       for (size_t j = 0; j < N; ++j) {
         float sum = 0.0f;
@@ -187,8 +196,7 @@ class OptimizedProductQuantizer {
   //! Given original data X and decoded Y_hat, find R such that
   //! ||X * R^T - Y_hat||_F is minimized.
   //! Solution: M = X^T * Y_hat, SVD(M) = U * S * V^T, R = V * U^T.
-  void LearnRotation(const float *X, const float *Y,
-                     size_t n, size_t dim) {
+  void LearnRotation(const float *X, const float *Y, size_t n, size_t dim) {
     // Compute M = X^T * Y (dim x dim)
     std::vector<float> M(dim * dim, 0.0f);
     MatMul(X, Y, M.data(), dim, n, dim, true, false);
