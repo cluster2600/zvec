@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 try:
     import cuvs.neighbors.hnsw as cuvs_hnsw
+
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_hnsw = None
@@ -51,7 +52,7 @@ class cuVSHNSWIndex:
         self.ef_search = ef_search
         self._index = None
 
-    def train(self, vectors: np.ndarray) -> "cuVSHNSWIndex":
+    def train(self, vectors: np.ndarray) -> cuVSHNSWIndex:
         """Build HNSW index."""
         vectors = np.asarray(vectors, dtype=np.float32)
 
@@ -77,9 +78,7 @@ class cuVSHNSWIndex:
 
         return self
 
-    def search(
-        self, query: np.ndarray, k: int = 10
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors."""
         query = np.asarray(query, dtype=np.float32)
         n_queries = query.shape[0]
@@ -88,7 +87,7 @@ class cuVSHNSWIndex:
             raise RuntimeError("Index not built")
 
         if not CUVS_AVAILABLE:
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            distances = np.random.random((n_queries, k)).astype(np.float32)  # noqa: NPY002
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 
@@ -98,6 +97,6 @@ class cuVSHNSWIndex:
             return distances, indices
         except Exception as e:
             logger.warning("cuVS HNSW search failed: %s", e)
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            distances = np.random.random((n_queries, k)).astype(np.float32)  # noqa: NPY002
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices

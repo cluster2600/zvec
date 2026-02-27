@@ -194,6 +194,7 @@ exclude = [
     ".venv/",
     "venv/",
     "thirdparty",
+    "*.ipynb",
 ]
 
 [tool.ruff.lint]
