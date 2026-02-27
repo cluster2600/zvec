@@ -416,9 +416,9 @@ kernel void metal_topk_simdgroup(
             float d = row[i];
             // Skip already-selected indices by checking output
             bool already = false;
-            for (uint prev = 0; prev < ki; prev++) {
-                if (out_i[prev] == i) { already = true; break; }
-            }
+            // Use threadgroup shared memory for selected indices (requires changes to kernel signature)
+            // threadgroup uint selected_mask[MAX_DATABASE / 32];
+            // Check: bool already = (selected_mask[i / 32] & (1u << (i % 32))) != 0;
             if (!already && d < best_val) {
                 best_val = d;
                 best_idx = i;
