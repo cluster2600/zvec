@@ -40,29 +40,29 @@ class TestGPUIndex:
 
     def test_create_index(self):
         """Test creating GPU index."""
-        from zvec.backends.gpu import create_index
+        from zvec.backends.gpu import create_index  # noqa: PLC0415
 
         index = create_index(dim=128, index_type="flat")
         assert index is not None
 
     def test_add_vectors(self):
         """Test adding vectors to index."""
-        from zvec.backends.gpu import GPUIndex
+        from zvec.backends.gpu import GPUIndex  # noqa: PLC0415
 
         index = GPUIndex(dim=128, index_type="flat")
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
         index.add(vectors)
         assert index.ntotal == 100
 
     def test_search(self):
         """Test searching index."""
-        from zvec.backends.gpu import GPUIndex
+        from zvec.backends.gpu import GPUIndex  # noqa: PLC0415
 
         index = GPUIndex(dim=128, index_type="flat")
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
         index.add(vectors)
 
-        query = np.random.random((5, 128)).astype(np.float32)
+        query = np.random.random((5, 128)).astype(np.float32)  # noqa: NPY002
         distances, indices = index.search(query, k=10)
 
         assert distances.shape == (5, 10)
@@ -70,7 +70,7 @@ class TestGPUIndex:
 
     def test_fallback_to_cpu(self):
         """Test CPU fallback."""
-        from zvec.backends.gpu import GPUIndex
+        from zvec.backends.gpu import GPUIndex  # noqa: PLC0415
 
         index = GPUIndex(dim=128, index_type="flat", use_gpu=False)
         assert not index.use_gpu
@@ -81,7 +81,7 @@ class TestQuantization:
 
     def test_pq_encoder_init(self):
         """Test PQ encoder initialization."""
-        from zvec.backends.quantization import PQEncoder
+        from zvec.backends.quantization import PQEncoder  # noqa: PLC0415
 
         encoder = PQEncoder(m=8, nbits=8, k=256)
         assert encoder.m == 8
@@ -90,10 +90,10 @@ class TestQuantization:
 
     def test_pq_train(self):
         """Test PQ training."""
-        from zvec.backends.quantization import PQEncoder
+        from zvec.backends.quantization import PQEncoder  # noqa: PLC0415
 
-        np.random.seed(42)
-        vectors = np.random.random((1000, 128)).astype(np.float32)
+        np.random.seed(42)  # noqa: NPY002
+        vectors = np.random.random((1000, 128)).astype(np.float32)  # noqa: NPY002
 
         encoder = PQEncoder(m=8, nbits=8, k=256)
         encoder.train(vectors)
@@ -102,10 +102,10 @@ class TestQuantization:
 
     def test_pq_encode_decode(self):
         """Test PQ encode/decode."""
-        from zvec.backends.quantization import PQEncoder
+        from zvec.backends.quantization import PQEncoder  # noqa: PLC0415
 
-        np.random.seed(42)
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        np.random.seed(42)  # noqa: NPY002
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
 
         encoder = PQEncoder(m=8, nbits=8, k=256)
         encoder.train(vectors)
@@ -118,15 +118,15 @@ class TestQuantization:
 
     def test_pq_index(self):
         """Test PQ index."""
-        from zvec.backends.quantization import PQIndex
+        from zvec.backends.quantization import PQIndex  # noqa: PLC0415
 
-        np.random.seed(42)
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        np.random.seed(42)  # noqa: NPY002
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
 
         index = PQIndex(m=8, nbits=8, k=256)
         index.add(vectors)
 
-        query = np.random.random((5, 128)).astype(np.float32)
+        query = np.random.random((5, 128)).astype(np.float32)  # noqa: NPY002
         distances, indices = index.search(query, k=10)
 
         assert distances.shape == (5, 10)
@@ -138,17 +138,17 @@ class TestOPQ:
 
     def test_opq_encoder_init(self):
         """Test OPQ encoder initialization."""
-        from zvec.backends.opq import OPQEncoder
+        from zvec.backends.opq import OPQEncoder  # noqa: PLC0415
 
         encoder = OPQEncoder(m=8, nbits=8, k=256)
         assert encoder.m == 8
 
     def test_scalar_quantizer(self):
         """Test scalar quantizer."""
-        from zvec.backends.opq import ScalarQuantizer
+        from zvec.backends.opq import ScalarQuantizer  # noqa: PLC0415
 
-        np.random.seed(42)
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        np.random.seed(42)  # noqa: NPY002
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
 
         quantizer = ScalarQuantizer(bits=8)
         quantizer.train(vectors)
@@ -165,12 +165,12 @@ class TestSearchOptimization:
 
     def test_adc(self):
         """Test asymmetric distance computation."""
-        from zvec.backends.search import asymmetric_distance_computation
+        from zvec.backends.search import asymmetric_distance_computation  # noqa: PLC0415
 
-        np.random.seed(42)
-        queries = np.random.random((10, 128)).astype(np.float32)
-        codes = np.random.randint(0, 256, (100, 8), dtype=np.uint8)
-        distance_table = np.random.random((10, 8, 256)).astype(np.float32)
+        np.random.seed(42)  # noqa: NPY002
+        queries = np.random.random((10, 128)).astype(np.float32)  # noqa: NPY002
+        codes = np.random.randint(0, 256, (100, 8), dtype=np.uint8)  # noqa: NPY002
+        distance_table = np.random.random((10, 8, 256)).astype(np.float32)  # noqa: NPY002
 
         distances = asymmetric_distance_computation(queries, codes, distance_table)
         assert distances.shape == (10, 100)
@@ -181,17 +181,17 @@ class TestHNSW:
 
     def test_hnsw_creation(self):
         """Test HNSW index creation."""
-        from zvec.backends.hnsw import HNSWIndex
+        from zvec.backends.hnsw import HNSWIndex  # noqa: PLC0415
 
         index = HNSWIndex(dim=128, M=16)
         assert index.dim == 128
 
     def test_hnsw_add(self):
         """Test adding vectors to HNSW."""
-        from zvec.backends.hnsw import HNSWIndex
+        from zvec.backends.hnsw import HNSWIndex  # noqa: PLC0415
 
         index = HNSWIndex(dim=128, M=8)
-        vectors = np.random.random((50, 128)).astype(np.float32)
+        vectors = np.random.random((50, 128)).astype(np.float32)  # noqa: NPY002
         index.add(vectors)
 
         # Basic check - just verify no error
@@ -203,7 +203,7 @@ class TestAppleSilicon:
 
     def test_apple_silicon_detection(self):
         """Test Apple Silicon detection."""
-        from zvec.backends import apple_silicon
+        from zvec.backends import apple_silicon  # noqa: PLC0415
 
         # Just verify functions exist and are callable
         assert callable(apple_silicon.is_apple_silicon)
@@ -211,19 +211,19 @@ class TestAppleSilicon:
 
     def test_apple_backend_init(self):
         """Test Apple Silicon backend initialization."""
-        from zvec.backends.apple_silicon import AppleSiliconBackend
+        from zvec.backends.apple_silicon import AppleSiliconBackend  # noqa: PLC0415
 
         backend = AppleSiliconBackend(backend="numpy")
         assert backend.backend == "numpy"
 
     def test_l2_distance(self):
         """Test L2 distance computation."""
-        from zvec.backends.apple_silicon import AppleSiliconBackend
+        from zvec.backends.apple_silicon import AppleSiliconBackend  # noqa: PLC0415
 
         backend = AppleSiliconBackend(backend="numpy")
 
-        a = np.random.random((10, 128)).astype(np.float32)
-        b = np.random.random((20, 128)).astype(np.float32)
+        a = np.random.random((10, 128)).astype(np.float32)  # noqa: NPY002
+        b = np.random.random((20, 128)).astype(np.float32)  # noqa: NPY002
 
         distances = backend.l2_distance(a, b)
         assert distances.shape == (10, 20)
@@ -234,7 +234,7 @@ class TestDistributed:
 
     def test_shard_manager(self):
         """Test shard manager."""
-        from zvec.backends.distributed import ShardManager
+        from zvec.backends.distributed import ShardManager  # noqa: PLC0415
 
         manager = ShardManager(n_shards=4, strategy="hash")
         assert manager.n_shards == 4
@@ -244,10 +244,10 @@ class TestDistributed:
 
     def test_distributed_index(self):
         """Test distributed index."""
-        from zvec.backends.distributed import DistributedIndex
+        from zvec.backends.distributed import DistributedIndex  # noqa: PLC0415
 
         index = DistributedIndex(n_shards=4)
-        vectors = np.random.random((100, 128)).astype(np.float32)
+        vectors = np.random.random((100, 128)).astype(np.float32)  # noqa: NPY002
         vector_ids = [f"v_{i}" for i in range(100)]
 
         index.add(vectors, vector_ids)
@@ -255,7 +255,7 @@ class TestDistributed:
 
     def test_result_merger(self):
         """Test result merging."""
-        from zvec.backends.distributed import ResultMerger
+        from zvec.backends.distributed import ResultMerger  # noqa: PLC0415
 
         results = [
             (np.array([1.0, 2.0]), np.array([0, 1])),

@@ -13,6 +13,7 @@ Based on Ben Brown (2023) - Neural Search on Modern Consumer Devices:
 # | 128 | 2ms | 5ms | 20ms |
 # | 256 | 3ms | 8ms | 40ms |
 # | 512 | 8ms | 12ms | 80ms |
+from __future__ import annotations
 
 EXPECTED_RESULTS = """
 # Expected Benchmark Results (from Ben Brown 2023)
@@ -33,7 +34,7 @@ EXPECTED_RESULTS = """
 
 def benchmark_ane_vs_mps(dim: int, n_queries: int = 100):
     """Placeholder for ANE vs MPS benchmark.
-    
+
     Requires:
     - Apple Silicon Mac
     - Core ML model for ANE

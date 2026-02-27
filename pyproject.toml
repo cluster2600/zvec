@@ -189,6 +189,7 @@ exclude = [
     ".git/",
     ".venv/",
     "venv/",
+    "*.ipynb",
 ]
 
 [tool.ruff.lint]

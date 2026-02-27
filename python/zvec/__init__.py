@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 # Public API — grouped by category
 # ==============================
 
-from . import model as model
 from . import backends as backends
+from . import model as model
 
 # —— Extensions ——
 from .extension import (
