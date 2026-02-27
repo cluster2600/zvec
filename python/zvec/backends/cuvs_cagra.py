@@ -13,7 +13,6 @@ CAGRA Key Features:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -23,6 +22,7 @@ logger = logging.getLogger(__name__)
 CUVS_AVAILABLE = False
 try:
     import cuvs.neighbors.cagra as cuvs_cagra
+
     CUVS_AVAILABLE = True
 except ImportError:
     cuvs_cagra = None
@@ -63,7 +63,7 @@ class cuVSCAGRAIndex:
 
         self._index = None
 
-    def train(self, vectors: np.ndarray) -> "cuVSCAGRAIndex":
+    def train(self, vectors: np.ndarray) -> cuVSCAGRAIndex:
         """Build CAGRA index.
 
         Args:
@@ -111,7 +111,7 @@ class cuVSCAGRAIndex:
         self,
         query: np.ndarray,
         k: int = 10,
-        num_iters: int = 10,
+        _num_iters: int = 10,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
@@ -131,14 +131,14 @@ class cuVSCAGRAIndex:
 
         if not CUVS_AVAILABLE:
             # Simulated search
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            distances = np.random.random((n_queries, k)).astype(np.float32)  # noqa: NPY002
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 
         try:
             # cuVS API: cagra.search(SearchParams, index, queries, k)
             # queries must be CUDA arrays — convert via cupy
-            import cupy as cp
+            import cupy as cp  # noqa: PLC0415
 
             search_params = cuvs_cagra.SearchParams()
             query_device = cp.asarray(query, dtype=cp.float32)
@@ -153,7 +153,7 @@ class cuVSCAGRAIndex:
 
         except Exception as e:
             logger.warning("cuVS CAGRA search failed: %s", e)
-            distances = np.random.random((n_queries, k)).astype(np.float32)
+            distances = np.random.random((n_queries, k)).astype(np.float32)  # noqa: NPY002
             indices = np.arange(n_queries).repeat(k).reshape(n_queries, k)
             return distances, indices
 
