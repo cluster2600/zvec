@@ -33,7 +33,7 @@ def asymmetric_distance_computation(
     distances = np.zeros((n_queries, n_codes), dtype=np.float32)
 
     for i in range(codes.shape[1]):  # m sub-vectors
-        distances += distance_table[:, i, codes[:, i]].T
+        distances += distance_table[:, i, codes[:, i]]
 
     return distances
 
