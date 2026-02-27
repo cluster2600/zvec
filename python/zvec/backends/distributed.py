@@ -55,13 +55,12 @@ class ShardManager:
 
         if self.strategy == "hash":
             return self._hash_key(key)
-        elif self.strategy == "random":
+        if self.strategy == "random":
             return hash(key) % self.n_shards
-        else:
-            # Range-based
-            return int(vector_id) % self.n_shards
+        # Range-based
+        return int(vector_id) % self.n_shards
 
-    def get_shard_for_query(self, query: np.ndarray) -> list[int]:
+    def get_shard_for_query(self, _query: np.ndarray) -> list[int]:
         """Get shards to query for a search.
 
         For full search, returns all shards.
@@ -75,9 +74,7 @@ class ShardManager:
         """
         return list(range(self.n_shards))
 
-    def add_vector(
-        self, vector: np.ndarray, vector_id: str | int
-    ) -> None:
+    def add_vector(self, vector: np.ndarray, vector_id: str | int) -> None:
         """Add a vector to the appropriate shard.
 
         Args:
@@ -149,7 +146,7 @@ class DistributedIndex:
             vector_ids = list(range(n_vectors))
 
         # Distribute vectors to shards
-        for i, (vector, vid) in enumerate(zip(vectors, vector_ids)):
+        for _i, (vector, vid) in enumerate(zip(vectors, vector_ids, strict=False)):
             shard = self.shard_manager.get_shard(vid)
             if shard not in self._local_indexes:
                 self._local_indexes[shard] = []
@@ -231,7 +228,7 @@ class QueryRouter:
 
     def route_query(
         self,
-        query: np.ndarray,
+        _query: np.ndarray,
         strategy: str = "all",
     ) -> list[int]:
         """Route query to appropriate shards.
@@ -245,12 +242,12 @@ class QueryRouter:
         """
         if strategy == "all":
             return list(range(self.shard_manager.n_shards))
-        elif strategy == "random":
-            import random
+        if strategy == "random":
+            import random  # noqa: PLC0415
+
             n = max(1, self.shard_manager.n_shards // 2)
             return random.sample(range(self.shard_manager.n_shards), n)
-        else:
-            return list(range(self.shard_manager.n_shards))
+        return list(range(self.shard_manager.n_shards))
 
 
 class ResultMerger:
