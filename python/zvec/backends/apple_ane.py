@@ -23,6 +23,9 @@ Key optimizations:
 # 3. Powers of 2 for batch/dim (≤16k)
 # 4. Fused ops (no separate layernorm)
 # 5. CNNs preferred over Transformers
+from __future__ import annotations
+
+import numpy as np
 
 ANE_OPTIMIZATION_TIPS = """
 # ANE Optimization Guide
@@ -53,19 +56,18 @@ ANE_OPTIMIZATION_TIPS = """
 """
 
 
-def estimate_ane_speedup(dim: int, batch_size: int = 1) -> float:
+def estimate_ane_speedup(dim: int, _batch_size: int = 1) -> float:
     """Estimate ANE speedup based on paper.
-    
+
     From Ben Brown 2023:
     - ANE 3x faster for small embeddings (dim ≤ 256)
     - Lags for large batch operations
     """
     if dim <= 256:
         return 3.0
-    elif dim <= 1024:
+    if dim <= 1024:
         return 2.0
-    else:
-        return 1.0
+    return 1.0
 
 
 def get_optimal_ane_config(dim: int) -> dict:
@@ -74,7 +76,7 @@ def get_optimal_ane_config(dim: int) -> dict:
     optimal_dim = 1
     while optimal_dim < dim:
         optimal_dim *= 2
-    
+
     return {
         "original_dim": dim,
         "optimal_dim": optimal_dim,
@@ -85,10 +87,10 @@ def get_optimal_ane_config(dim: int) -> dict:
 
 class ANEVectorEncoder:
     """Vector encoder optimized for Apple Neural Engine."""
-    
+
     def __init__(self, dim: int, batch_size: int = 1):
         """Initialize ANE encoder.
-        
+
         Args:
             dim: Embedding dimension.
             batch_size: Batch size for encoding.
@@ -96,39 +98,38 @@ class ANEVectorEncoder:
         self.dim = dim
         self.batch_size = batch_size
         self.config = get_optimal_ane_config(dim)
-        
+
         # Check ANE availability
         self.ane_available = self._check_ane()
-        
+
     def _check_ane(self) -> bool:
         """Check if ANE is available."""
         try:
-            import torch
+            import torch  # noqa: PLC0415
+
             return torch.backends.mps.is_available()
         except ImportError:
             return False
-    
-    def encode(self, texts: list[str]) -> "np.ndarray":
+
+    def encode(self, texts: list[str]) -> np.ndarray:
         """Encode texts to embeddings using ANE.
-        
+
         This is a placeholder - actual implementation would use:
         1. BERT/DistilBERT model
         2. Core ML conversion
         3. ANE inference
         """
-        import numpy as np
-        
+        import numpy as np  # noqa: PLC0415
+
         # Placeholder: random embeddings
-        embeddings = np.random.randn(len(texts), self.dim).astype(np.float16)
-        
-        return embeddings
-    
+        return np.random.randn(len(texts), self.dim).astype(np.float16)  # noqa: NPY002
+
     def optimize_for_ane(self, model_path: str) -> str:
         """Convert PyTorch model to Core ML for ANE.
-        
+
         Args:
             model_path: Path to PyTorch model.
-            
+
         Returns:
             Path to Core ML model.
         """
@@ -136,7 +137,6 @@ class ANEVectorEncoder:
         # import coremltools as ct
         # model = ct.convert(model_path)
         # model.save("embedding_model.mlpackage")
-        pass
 
 
 # Reference from Apple ML Research:

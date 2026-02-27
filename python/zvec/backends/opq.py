@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -57,7 +56,7 @@ class OPQEncoder:
             n_iter: Number of optimization iterations.
         """
         vectors = np.asarray(vectors, dtype=np.float32)
-        n_vectors, dim = vectors.shape
+        _n_vectors, dim = vectors.shape
 
         if dim % self.m != 0:
             raise ValueError(f"Dimension {dim} must be divisible by m={self.m}")
@@ -78,7 +77,7 @@ class OPQEncoder:
             self._learn_rotation(vectors)
 
             if iteration % 5 == 0:
-                logger.info(f"OPQ iteration {iteration}/{n_iter}")
+                logger.info("OPQ iteration %s/%s", iteration, n_iter)
 
         self._is_trained = True
         logger.info("OPQ training complete")
@@ -105,7 +104,7 @@ class OPQEncoder:
         # Learn rotation from error (simplified)
         # In full OPQ, this uses more sophisticated optimization
         U, _ = np.linalg.qr(error.T)
-        self.rotation_matrix = U[:vectors.shape[1], :vectors.shape[1]].T
+        self.rotation_matrix = U[: vectors.shape[1], : vectors.shape[1]].T
 
     def rotate(self, vectors: np.ndarray) -> np.ndarray:
         """Rotate vectors using the learned rotation matrix.
@@ -203,7 +202,9 @@ class ScalarQuantizer:
         self.zero_point = 0.0
 
         logger.info(
-            f"Scalar quantizer trained: bits={self.bits}, scale={self.scale:.6f}"
+            "Scalar quantizer trained: bits=%d, scale=%.6f",
+            self.bits,
+            self.scale,
         )
 
     def encode(self, vectors: np.ndarray) -> np.ndarray:
@@ -219,10 +220,7 @@ class ScalarQuantizer:
             raise RuntimeError("Quantizer not trained. Call train() first.")
 
         scaled = vectors / self.scale
-        quantized = np.round(scaled).astype(
-            np.int8 if self.bits == 8 else np.int16
-        )
-        return quantized
+        return np.round(scaled).astype(np.int8 if self.bits == 8 else np.int16)
 
     def decode(self, quantized: np.ndarray) -> np.ndarray:
         """Dequantize vectors.
@@ -253,9 +251,8 @@ def create_quantizer(
     """
     if quantizer_type == "pq":
         return PQEncoder(**kwargs)
-    elif quantizer_type == "opq":
+    if quantizer_type == "opq":
         return OPQEncoder(**kwargs)
-    elif quantizer_type == "scalar":
+    if quantizer_type == "scalar":
         return ScalarQuantizer(**kwargs)
-    else:
-        raise ValueError(f"Unknown quantizer type: {quantizer_type}")
+    raise ValueError(f"Unknown quantizer type: {quantizer_type}")
