@@ -30,20 +30,25 @@ namespace zvec {
  * transfer to Metal (device buffer) or CUDA (cudaMemcpy).
  */
 struct GpuBuffer {
-  std::vector<uint64_t> keys;   ///< Document keys, one per vector
-  std::vector<float> vectors;   ///< Contiguous (n × dim) float32 buffer
-  size_t n_vectors = 0;         ///< Number of vectors loaded
-  size_t dim = 0;               ///< Dimensionality of each vector
+  std::vector<uint64_t> keys;  ///< Document keys, one per vector
+  std::vector<float> vectors;  ///< Contiguous (n × dim) float32 buffer
+  size_t n_vectors = 0;        ///< Number of vectors loaded
+  size_t dim = 0;              ///< Dimensionality of each vector
 
   /// @brief Get a pointer to the i-th vector
-  const float *vector_at(size_t i) const { return vectors.data() + i * dim; }
+  const float *vector_at(size_t i) const {
+    return vectors.data() + i * dim;
+  }
 
   /// @brief Total bytes in the vector buffer
-  size_t byte_size() const { return vectors.size() * sizeof(float); }
+  size_t byte_size() const {
+    return vectors.size() * sizeof(float);
+  }
 };
 
 /**
- * @brief Loads vectors from an IndexProvider into a contiguous GPU-ready buffer.
+ * @brief Loads vectors from an IndexProvider into a contiguous GPU-ready
+ * buffer.
  *
  * This bridges zvec's segment-based storage with GPU compute pipelines
  * (Metal, CUDA/cuVS). It streams vectors through the IndexProvider::Iterator
@@ -126,8 +131,8 @@ class GpuBufferLoader {
    * @return GpuBuffer with up to max_count vectors.
    */
   static GpuBuffer load_chunk(core::IndexHolder::Iterator *iter, size_t dim,
-                               core::IndexMeta::DataType data_type,
-                               size_t max_count) {
+                              core::IndexMeta::DataType data_type,
+                              size_t max_count) {
     GpuBuffer buf;
     buf.dim = dim;
 
@@ -151,8 +156,8 @@ class GpuBufferLoader {
    * @brief Append a single vector to the float32 buffer, converting if needed.
    */
   static void append_as_float32(std::vector<float> &dst, const void *src,
-                                 size_t dim,
-                                 core::IndexMeta::DataType data_type) {
+                                size_t dim,
+                                core::IndexMeta::DataType data_type) {
     size_t offset = dst.size();
     dst.resize(offset + dim);
 
