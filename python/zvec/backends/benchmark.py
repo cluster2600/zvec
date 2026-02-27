@@ -24,8 +24,8 @@ def generate_random_vectors(n_vectors: int, dim: int, seed: int = 42) -> np.ndar
     Returns:
         Random vectors as numpy array.
     """
-    np.random.seed(seed)
-    return np.random.random((n_vectors, dim)).astype(np.float32)
+    np.random.seed(seed)  # noqa: NPY002
+    return np.random.random((n_vectors, dim)).astype(np.float32)  # noqa: NPY002
 
 
 def benchmark_numpy(
@@ -71,7 +71,7 @@ def benchmark_faiss_cpu(
         Dictionary with timing results.
     """
     try:
-        import faiss
+        import faiss  # noqa: PLC0415
 
         # Create index
         dim = database.shape[1]
@@ -107,7 +107,7 @@ def benchmark_faiss_gpu(
         Dictionary with timing results.
     """
     try:
-        import faiss
+        import faiss  # noqa: PLC0415
 
         # Create GPU index
         dim = database.shape[1]
@@ -129,7 +129,7 @@ def benchmark_faiss_gpu(
             "queries_per_second": len(queries) / (end - start),
         }
     except Exception as e:
-        logger.warning(f"FAISS GPU not available: {e}")
+        logger.warning("FAISS GPU not available: %s", e)
         return None
 
 
@@ -151,7 +151,10 @@ def run_benchmarks(
         List of benchmark results.
     """
     logger.info(
-        f"Generating data: {n_vectors:,} vectors, dim={dim}, {n_queries} queries"
+        "Generating data: %s vectors, dim=%s, %s queries",
+        f"{n_vectors:,}",
+        dim,
+        n_queries,
     )
 
     database = generate_random_vectors(n_vectors, dim)
@@ -163,19 +166,19 @@ def run_benchmarks(
     logger.info("Running NumPy benchmark...")
     result = benchmark_numpy(database, queries, k)
     results.append(result)
-    logger.info(f"  NumPy: {result['time']:.4f}s")
+    logger.info("  NumPy: %.4fs", result["time"])
 
     # FAISS CPU
     result = benchmark_faiss_cpu(database, queries, k)
     if result:
         results.append(result)
-        logger.info(f"  FAISS CPU: {result['time']:.4f}s")
+        logger.info("  FAISS CPU: %.4fs", result["time"])
 
     # FAISS GPU
     result = benchmark_faiss_gpu(database, queries, k)
     if result:
         results.append(result)
-        logger.info(f"  FAISS GPU: {result['time']:.4f}s")
+        logger.info("  FAISS GPU: %.4fs", result["time"])
 
     return results
 
@@ -234,9 +237,9 @@ def main():
     sizes = [int(s) for s in args.sizes.split(",")] if args.sizes else [args.vectors]
 
     for n_vectors in sizes:
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"Testing with {n_vectors:,} vectors")
-        logger.info(f"{'=' * 60}")
+        logger.info("\n%s", "=" * 60)
+        logger.info("Testing with %, vectors", n_vectors)
+        logger.info("%s", "=" * 60)
 
         results = run_benchmarks(
             n_vectors=n_vectors,
