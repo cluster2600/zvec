@@ -28,6 +28,9 @@ message(STATUS "BUILD_PYTHON_BINDINGS:${BUILD_PYTHON_BINDINGS}")
 option(BUILD_TOOLS "Build tools" ON)
 message(STATUS "BUILD_TOOLS:${BUILD_TOOLS}")
 
+option(USE_OSS_MIRROR "Use OSS mirror for faster third-party downloads" ON)
+message(STATUS "USE_OSS_MIRROR:${USE_OSS_MIRROR}")
+
 cc_directory(thirdparty)
 cc_directories(src)
 cc_directories(tests)
@@ -56,6 +59,6 @@ if(BUILD_PYTHON_BINDINGS)
         set(ZVEC_PY_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
     endif()
 
-    MESSAGE(STATUS "Zvec install path: ${ZVEC_PY_INSTALL_DIR}")
+    message(STATUS "Zvec install path: ${ZVEC_PY_INSTALL_DIR}")
     install(TARGETS _zvec LIBRARY DESTINATION ${ZVEC_PY_INSTALL_DIR})
 endif()

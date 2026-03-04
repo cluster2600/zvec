@@ -14,12 +14,27 @@ set(LIB_ACERO ${EXTERNAL_LIB_DIR}/libarrow_acero.a)
 set(LIB_ARROW_DEPENDS ${EXTERNAL_LIB_DIR}/libarrow_bundled_dependencies.a)
 set(LIB_ARROW_DATASET ${EXTERNAL_LIB_DIR}/libarrow_dataset.a)
 
+set(CONFIGURE_ENV_LIST "")
+if(USE_OSS_MIRROR)
+        list(APPEND CONFIGURE_ENV_LIST
+                "ARROW_BOOST_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/boost-1.88.0-cmake.tar.gz"
+                "ARROW_RAPIDJSON_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/rapidjson-232389d4f1012dddec4ef84861face2d2ba85709.tar.gz"
+                "ARROW_RE2_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/re2-2022-06-01.tar.gz"
+                "ARROW_THRIFT_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/thrift-0.22.0.tar.gz"
+                "ARROW_UTF8PROC_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/utf8proc-2.10.0.tar.gz"
+                "ARROW_XSIMD_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/xsimd-13.0.0.tar.gz"
+                "ARROW_ZLIB_URL=https://zvec.oss-cn-hongkong.aliyuncs.com/thirdparty/zlib-1.3.1.tar.gz"
+        )
+        message(STATUS "Using OSS mirror for third-party downloads")
+endif()
+
+
 ExternalProject_Add(
         ARROW.BUILD PREFIX arrow
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/apache-arrow-21.0.0
         DOWNLOAD_COMMAND ""
         BUILD_IN_SOURCE false
-        CONFIGURE_COMMAND "${CMAKE_COMMAND}" ${CMAKE_CACHE_ARGS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_DEBUG_POSTFIX= -DARROW_BUILD_SHARED=OFF -DARROW_ACERO=ON -DARROW_FILESYSTEM=ON -DARROW_DATASET=ON -DARROW_PARQUET=ON -DARROW_COMPUTE=ON -DARROW_WITH_ZLIB=OFF -DARROW_DEPENDENCY_SOURCE=BUNDLED -DARROW_MIMALLOC=OFF -DCMAKE_INSTALL_LIBDIR=lib "<SOURCE_DIR>/cpp"
+        CONFIGURE_COMMAND env ${CONFIGURE_ENV_LIST} "${CMAKE_COMMAND}" ${CMAKE_CACHE_ARGS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_DEBUG_POSTFIX= -DARROW_BUILD_SHARED=OFF -DARROW_ACERO=ON -DARROW_FILESYSTEM=ON -DARROW_DATASET=ON -DARROW_PARQUET=ON -DARROW_COMPUTE=ON -DARROW_WITH_ZLIB=OFF -DARROW_DEPENDENCY_SOURCE=BUNDLED -DARROW_MIMALLOC=OFF -DCMAKE_INSTALL_LIBDIR=lib "<SOURCE_DIR>/cpp"
         BUILD_COMMAND "${CMAKE_COMMAND}" --build . --target all -- -j ${NPROC}
         INSTALL_COMMAND "${CMAKE_COMMAND}" --install "<BINARY_DIR>" --prefix=${EXTERNAL_BINARY_DIR}/usr/local
         BYPRODUCTS ${LIB_PARQUET} ${LIB_ARROW} ${LIB_COMPUTE} ${LIB_ACERO} ${LIB_ARROW_DEPENDS} ${LIB_ARROW_DATASET}
