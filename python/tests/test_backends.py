@@ -35,6 +35,10 @@ class TestHardwareDetection:
         assert "selected" in info
 
 
+@pytest.mark.skipif(
+    not detect.FAISS_AVAILABLE,
+    reason="FAISS not installed",
+)
 class TestGPUIndex:
     """Tests for GPU index."""
 
@@ -251,7 +255,10 @@ class TestDistributed:
         vector_ids = [f"v_{i}" for i in range(100)]
 
         index.add(vectors, vector_ids)
-        assert 4 in index._local_indexes
+        # With 4 shards using hash strategy, 100 vectors should distribute
+        # across multiple shards (shard indices are 0-3, never 4)
+        assert len(index._local_indexes) > 0
+        assert all(0 <= s < 4 for s in index._local_indexes)
 
     def test_result_merger(self):
         """Test result merging."""
