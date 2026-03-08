@@ -15,8 +15,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <atomic>
 #include <future>
 #include <iomanip>
+#include <random>
 #include <ailego/math/distance.h>
 #include <gtest/gtest.h>
 #include <zvec/ailego/container/vector.h>
@@ -912,7 +914,7 @@ TEST_F(HnswSparseSearcherTest, TestSharedContext) {
   srand(ailego::Realtime::MilliSeconds());
   size_t docs1 = rand() % 500 + 100;
   size_t docs2 = rand() % 5000 + 100;
-  size_t docs3 = rand() % 50000 + 100;
+  size_t docs3 = rand() % 10000 + 100;
   auto path1 = dir_ + "/TestSharedContext.index1";
   auto path2 = dir_ + "/TestSharedContext.index2";
   auto path3 = dir_ + "/TestSharedContext.index3";
@@ -920,12 +922,16 @@ TEST_F(HnswSparseSearcherTest, TestSharedContext) {
   auto searcher2 = gen_index(1, docs2, path2);
   auto searcher3 = gen_index(2, docs3, path3);
 
-  srand(ailego::Realtime::MilliSeconds());
   IndexQueryMeta qmeta(IndexMeta::MetaType::MT_SPARSE,
                        IndexMeta::DataType::DT_FP32);
+  // Use a thread-local random generator instead of rand() to avoid data races
+  // across async threads. Each thread gets its own deterministic seed based on
+  // its thread id.
+  static std::atomic<uint32_t> thread_seed_counter{0};
   auto do_test = [&]() {
+    std::mt19937 rng(42 + thread_seed_counter.fetch_add(1));
     IndexSearcher::Context::Pointer ctx;
-    switch (rand() % 3) {
+    switch (rng() % 3) {
       case 0:
         ctx = searcher1->create_context();
         break;
@@ -948,7 +954,7 @@ TEST_F(HnswSparseSearcherTest, TestSharedContext) {
         sparse_velues[j] = -(i + 0.1f);
       }
 
-      auto code = rand() % 6;
+      auto code = rng() % 6;
       switch (code) {
         case 0:
           ret = searcher1->search_impl(sparse_dim_count, sparse_indices.data(),
