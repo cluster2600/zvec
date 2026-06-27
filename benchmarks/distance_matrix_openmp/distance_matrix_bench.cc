@@ -39,11 +39,11 @@
 // Self-validating: aborts (non-zero exit) if the parallel result diverges from
 // the serial result, so it doubles as a correctness test.
 
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <chrono>
 #include <vector>
 
 #ifdef _OPENMP
@@ -52,8 +52,8 @@
 
 namespace {
 
-// Same kernel as zvec ailego::SquaredEuclideanDistanceScalar: float accumulator,
-// sum of squared per-dimension differences.
+// Same kernel as zvec ailego::SquaredEuclideanDistanceScalar: float
+// accumulator, sum of squared per-dimension differences.
 inline float SquaredEuclideanDistanceScalar(const float *m, const float *q,
                                             std::size_t dim) {
   float sum = 0.0f;
@@ -94,7 +94,8 @@ double TimeSeconds(void (*fn)(const float *, const float *, float *,
                    const float *db, const float *query, float *out,
                    std::size_t M, std::size_t N, std::size_t dim) {
   double best = 1e30;
-  for (int rep = 0; rep < 3; ++rep) {  // ponytail: best-of-3, warm cache, kills noise
+  for (int rep = 0; rep < 3;
+       ++rep) {  // ponytail: best-of-3, warm cache, kills noise
     auto t0 = std::chrono::steady_clock::now();
     fn(db, query, out, M, N, dim);
     auto t1 = std::chrono::steady_clock::now();
@@ -107,8 +108,10 @@ double TimeSeconds(void (*fn)(const float *, const float *, float *,
 }  // namespace
 
 int main(int argc, char **argv) {
-  std::size_t M = (argc > 1) ? std::strtoul(argv[1], nullptr, 10) : 1024;  // db rows
-  std::size_t N = (argc > 2) ? std::strtoul(argv[2], nullptr, 10) : 1024;  // queries
+  std::size_t M =
+      (argc > 1) ? std::strtoul(argv[1], nullptr, 10) : 1024;  // db rows
+  std::size_t N =
+      (argc > 2) ? std::strtoul(argv[2], nullptr, 10) : 1024;  // queries
   std::size_t dim = (argc > 3) ? std::strtoul(argv[3], nullptr, 10) : 128;
 
   std::vector<float> db(M * dim), query(N * dim);
