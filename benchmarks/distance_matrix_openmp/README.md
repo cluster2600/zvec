@@ -120,6 +120,15 @@ per-pair kernels.
   drop-in for the in-tree kernel. An upstream-relevant variant would be an
   opt-in (`ENABLE_OPENMP`-gated) batch-parallel *full-scan* path for the
   single-large-scan case — out of scope here.
+- **Consistent with zvec's published direction.** zvec advances distance-calc
+  performance through *batch optimization and CPU detect & dispatch* (e.g. the
+  batched IP/L2 path on x86 in the 0.3.0 release), and targets a broad,
+  portable platform set — x86, arm64, Windows, Android/iOS, RISC-V. A portable
+  SIMD-dispatch model fits that trajectory; a hard `#pragma omp` dependency in
+  the hot kernel does not, which is the other reason this benchmark stays
+  standalone rather than proposing a kernel change. The row-parallel schedule
+  here is *orthogonal* to zvec's batched-SIMD work — it composes on top of the
+  dispatched inner kernel rather than replacing it.
 - Inputs are deterministic (no RNG seed), so results are reproducible.
 
 ## Test data
