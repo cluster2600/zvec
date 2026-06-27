@@ -111,9 +111,15 @@ per-pair kernels.
 ## Notes
 
 - The benchmark reproduces zvec's scalar kernel
-  (`ailego::SquaredEuclideanDistanceScalar`) to stay self-contained. Wiring the
-  same outer-loop OpenMP schedule into the SIMD-dispatched matrix kernels and
-  linking against a built `libzvec` is a natural follow-up.
+  (`ailego::SquaredEuclideanDistanceScalar`) to stay self-contained. Note that
+  zvec's production `SquaredEuclideanDistanceMatrix<T, M, N>` is a
+  compile-time-blocked SIMD *micro-kernel* (M, N are register-tile sizes), and
+  zvec parallelizes **per query** via its thread pool — so the single-query flat
+  scan is intentionally serial and `ENABLE_OPENMP` defaults off. This benchmark
+  therefore stands on its own as a demonstration of the schedule; it is not a
+  drop-in for the in-tree kernel. An upstream-relevant variant would be an
+  opt-in (`ENABLE_OPENMP`-gated) batch-parallel *full-scan* path for the
+  single-large-scan case — out of scope here.
 - Inputs are deterministic (no RNG seed), so results are reproducible.
 
 ## Test data
