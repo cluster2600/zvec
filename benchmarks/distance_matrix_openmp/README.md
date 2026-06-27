@@ -17,6 +17,22 @@ over database rows `i`. Each row writes a disjoint slice of `out`, and the
 reduction order within a pair is unchanged, so distributing rows across threads
 is legal and the result is **bit-identical** to the serial computation.
 
+```mermaid
+flowchart TD
+    i["outer loop i — database rows<br/>parallel(i): LEGAL — disjoint output rows"]:::par
+    j["middle loop j — query rows"]:::seq
+    k["inner loop k — dimension D (reduction)<br/>parallel(k): REJECTED — carries the accumulation"]:::bad
+    acc["out[i*N + j] += (m[i*K + k] − q[j*K + k])²"]:::body
+    i --> j --> k --> acc
+    classDef par  fill:#1f7a1f,color:#fff,stroke:#0a0,stroke-width:2px
+    classDef seq  fill:#2b2b2b,color:#fff,stroke:#888
+    classDef bad  fill:#7a1f1f,color:#fff,stroke:#d33,stroke-width:2px
+    classDef body fill:#1f3a7a,color:#fff,stroke:#46f
+```
+
+OpenMP parallelizes **only** the green `i` loop; the red `k` reduction stays
+serial within each pair, which is exactly why the output is bit-identical.
+
 ## Why this is safe (and the reduction loop is not)
 
 The schedule — *parallelize the row loop, never the reduction dimension* — was
@@ -32,6 +48,23 @@ Modeling this kernel there:
 The benchmark encodes exactly that: OpenMP on the `i` loop only, and a runtime
 correctness gate (it exits non-zero if the parallel result diverges from the
 serial one, so it doubles as a test).
+
+The schedule wasn't hand-guessed — it's what the agentic loop converges to:
+
+```mermaid
+flowchart LR
+    A["LLM proposes a schedule<br/>(interchange / tile / parallel / …)"] --> B{"Polyhedral legality<br/>(ISL): any carried<br/>dependence violated?"}
+    B -- "illegal" --> A
+    B -- "legal" --> C["clang -O3 + OpenMP<br/>compile &amp; execute"]
+    C --> D["measure speedup<br/>&amp; checksum vs serial"]
+    D -- "not best yet — iterate" --> A
+    D -- "converged" --> E["winning schedule:<br/>parallel(i) — or tile2d(i,j) + parallel"]:::win
+    classDef win fill:#1f7a1f,color:#fff,stroke:#0a0,stroke-width:2px
+```
+
+Legality is *proven* before any code runs, and every accepted schedule is
+checksum-verified against the serial reference — a wrong transform can neither
+be proposed past the legality gate nor survive the checksum.
 
 ## Build & run
 
@@ -57,6 +90,15 @@ ctest --test-dir build --output-on-failure
 | 2 | 1.98× |
 | 4 | 3.88× |
 | 8 | 5.16× |
+
+```mermaid
+xychart-beta
+    title "Speedup vs threads — bar = measured, dashed line = ideal linear"
+    x-axis "Threads" [1, 2, 4, 8]
+    y-axis "Speedup ×" 0 --> 8
+    bar [1.00, 1.98, 3.88, 5.16]
+    line [1, 2, 4, 8]
+```
 
 `max_abs_diff` (parallel vs serial) = **0.000e+00** at every thread count —
 the parallel result is bit-identical.
