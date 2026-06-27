@@ -137,12 +137,22 @@ int MatrixRotator::init_impl(size_t dim) {
 void MatrixRotator::rotate(const float *in, float *out) const {
   const size_t dim = dimension_;
   // out = in * matrix_  (1 x dim) * (dim x dim) -> (1 x dim)
+  //
+  // Accumulate by input index i (outer) so matrix_ is read row-contiguously in
+  // the inner j loop: matrix_[i * dim + j] steps by 1. The original
+  // j-outer/i-inner order accessed matrix_ by column (stride `dim`), which
+  // thrashes cache/TLB for large dim and blocks auto-vectorization. The
+  // summation over i is performed in the same order, so the result is unchanged
+  // (any difference is at FMA/vectorization level).
   for (size_t j = 0; j < dim; ++j) {
-    float sum = 0.0f;
-    for (size_t i = 0; i < dim; ++i) {
-      sum += in[i] * matrix_[i * dim + j];
+    out[j] = 0.0f;
+  }
+  for (size_t i = 0; i < dim; ++i) {
+    const float xi = in[i];
+    const float *row = &matrix_[i * dim];
+    for (size_t j = 0; j < dim; ++j) {
+      out[j] += xi * row[j];
     }
-    out[j] = sum;
   }
 }
 
