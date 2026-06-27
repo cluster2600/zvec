@@ -115,3 +115,24 @@ per-pair kernels.
   same outer-loop OpenMP schedule into the SIMD-dispatched matrix kernels and
   linking against a built `libzvec` is a natural follow-up.
 - Inputs are deterministic (no RNG seed), so results are reproducible.
+
+## Test data
+
+Inputs are **synthetic and deterministic** — a single fixed pattern generated
+by a modular formula (`db[i] = ((i*7+13) % 97)/97`, `query[i] = ((i*11+5) % 89)/89`),
+not random vectors and not a multi-distribution cohort. This is deliberate and
+sufficient for what the benchmark claims:
+
+- **Speedup is data-independent.** The kernel is a dense, branch-free reduction
+  over `D`; it executes the same FLOPs regardless of the values, so tile/parallel
+  speedup depends on array shape and access pattern, not on the numbers. Random
+  inputs give the same numbers within noise.
+- **Correctness is proven by cross-reference, not by a data cohort.** The parallel
+  output is compared bit-for-bit against the serial reference on identical inputs
+  (`max_abs_diff == 0`); ISL also proves legality before execution. Any single
+  input exercising every cell suffices for an exact-equality gate.
+
+What this does **not** measure: numerical accuracy / recall of the quantized
+kernels (int8/int4/fp16) versus fp32 — that *is* distribution-sensitive and would
+need realistic or randomized vectors. It is out of scope here; this benchmark is
+about schedule performance and transform legality, not quantization recall.
