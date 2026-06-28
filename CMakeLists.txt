@@ -81,6 +81,7 @@ option(BUILD_ZVEC_CORE_SHARED "Build all-in-one zvec-core shared library libzvec
 option(BUILD_PYTHON_BINDINGS "Build Python bindings using pybind11" OFF)
 option(BUILD_C_BINDINGS "Build C bindings" ON)
 option(BUILD_TOOLS "Build tools" ON)
+option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 message(STATUS "BUILD_ZVEC_SHARED:${BUILD_ZVEC_SHARED}")
 message(STATUS "BUILD_ZVEC_AILEGO_SHARED:${BUILD_ZVEC_AILEGO_SHARED}")
@@ -148,6 +149,10 @@ add_custom_target(clang_tidy_deps DEPENDS zvec_proto ARROW.BUILD glog gflags Lz4
 
 if(BUILD_TOOLS)
     cc_directories(tools)
+endif()
+
+if(BUILD_BENCHMARKS)
+    cc_directories(benchmarks)
 endif()
 
 git_version(GIT_SRCS_VER ${PROJECT_ROOT_DIR})
