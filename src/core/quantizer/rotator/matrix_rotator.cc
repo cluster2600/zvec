@@ -124,10 +124,16 @@ int MatrixRotator::init_impl(size_t dim) {
   std::vector<float> Q(dim * dim);
   householder_qr(rand_mat.data(), Q.data(), dim);
 
-  // Store Q^T (transpose) as the rotation matrix
+  // Store Q^T (transpose) as the rotation matrix.
+  //
+  // Interchange so the write matrix_[j * dim + i] is contiguous in the inner i
+  // loop (stride 1); the original i-outer/j-inner order wrote by column (stride
+  // `dim`), thrashing cache for large dim. Q is read strided either way, so
+  // making the stores sequential is the net win. This is a pure copy, so the
+  // result is identical regardless of loop order.
   matrix_.resize(dim * dim);
-  for (size_t i = 0; i < dim; ++i) {
-    for (size_t j = 0; j < dim; ++j) {
+  for (size_t j = 0; j < dim; ++j) {
+    for (size_t i = 0; i < dim; ++i) {
       matrix_[j * dim + i] = Q[i * dim + j];
     }
   }
